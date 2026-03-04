@@ -5,6 +5,10 @@ import { tally } from '@/engine/vote';
 import { checkWinCondition } from '@/engine/winCondition';
 import { advance } from '@/engine/stateMachine';
 import { getRouteForPhase } from '@/engine/phaseRoutes';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
 
 export default function VoteResult() {
     const navigate = useNavigate();
@@ -15,10 +19,8 @@ export default function VoteResult() {
     const result = tally(state, isRunoff);
 
     useEffect(() => {
-        // Auto-process if this is a vote result (not runoff decision)
         if (result.eliminated && !isRunoff) {
             setTimeout(() => {
-                // Update player as not alive
                 dispatch({
                     type: ACTIONS.UPDATE_PLAYER,
                     payload: {
@@ -27,8 +29,14 @@ export default function VoteResult() {
                     },
                 });
 
+                dispatch({
+                    type: ACTIONS.UPDATE_ROUND,
+                    payload: {
+                        round_number: state.current_round,
+                        updates: { eliminated_player_id: result.eliminated.id },
+                    },
+                });
 
-                // Check win condition
                 const newState = {
                     ...state,
                     players: state.players.map(p =>
@@ -46,13 +54,15 @@ export default function VoteResult() {
                     return;
                 }
 
-                // Check for medium reveal
                 const hasMedium = newState.players.some(p => p.is_alive && p.role === 'medium');
 
                 if (hasMedium) {
+                    dispatch({
+                        type: ACTIONS.SET_PHASE_AND_ROUND,
+                        payload: { phase: 'medium_reveal' },
+                    });
                     navigate('/vote/medium-reveal');
                 } else {
-                    // Advance to night
                     const { next, updates } = advance(newState, checkWinCondition);
                     dispatch({
                         type: ACTIONS.SET_PHASE_AND_ROUND,
@@ -70,72 +80,58 @@ export default function VoteResult() {
         }
     };
 
-    const proceedAfterVote = () => {
-        if (result.eliminated) {
-            // Already handled by useEffect
-        }
-    };
-
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
-            <div className="max-w-2xl w-full">
+        <PageShell className="flex items-center justify-center p-4">
+            <div className="max-w-2xl w-full animate-fade-in-up">
+                {/* Runoff announcement */}
                 {result.runoff && !isRunoff && (
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6">
-                        <div className="text-center">
-                            <h1 className="text-3xl font-bold text-amber-400">Ballottaggio!</h1>
-                            <p className="text-slate-400 mt-2">
-                                È stata un'elezione serrata. Ballottaggio tra:
-                            </p>
-                        </div>
+                    <PulpCard variant="neon" className="p-8 space-y-6 text-center">
+                        <Headline glow="pink">PAREGGIO!</Headline>
+                        <p className="text-cream/60">Ballottaggio tra:</p>
 
                         <div className="space-y-3">
                             {result.runoff.map((player) => (
-                                <div key={player.id} className="bg-slate-700 rounded-lg p-4 text-center">
-                                    <p className="font-bold text-lg">{player.name}</p>
-                                    <p className="text-sm text-slate-400">
+                                <div key={player.id} className="bg-noir/50 border border-neon-pink/30 rounded-lg p-4 text-center">
+                                    <p className="text-headline text-xl text-neon-pink">{player.name}</p>
+                                    <p className="text-ui text-sm text-cream/40 mt-1">
                                         {result.counts[player.id]} voti
                                     </p>
                                 </div>
                             ))}
                         </div>
 
-                        <button
-                            onClick={proceedToRunoff}
-                            className="w-full bg-amber-600 hover:bg-amber-700 text-black font-bold py-3 px-6 rounded-lg transition"
-                        >
+                        <NeonButton color="pink" onClick={proceedToRunoff}>
                             Procedi al Ballottaggio
-                        </button>
-                    </div>
+                        </NeonButton>
+                    </PulpCard>
                 )}
 
+                {/* Elimination result */}
                 {result.eliminated && (
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6">
-                        <div className="text-center">
-                            <h1 className="text-3xl font-bold text-red-400">Eliminato!</h1>
-                        </div>
+                    <PulpCard variant="danger" className="p-8 space-y-6 text-center">
+                        <Headline glow="red">ELIMINATO</Headline>
 
-                        <div className="bg-red-900 border border-red-700 rounded-lg p-6 text-center">
-                            <p className="text-2xl font-bold text-red-400">{result.eliminated.name}</p>
-                            <p className="text-sm text-red-300 mt-2">
+                        <div className="bg-noir/60 border-2 border-blood rounded-lg p-6 animate-blood-drip">
+                            <p className="text-headline text-4xl text-blood glow-red">{result.eliminated.name}</p>
+                            <p className="text-ui text-sm text-cream/40 mt-2">
                                 {result.counts[result.eliminated.id]} voti
                             </p>
                         </div>
 
-                        <div className="text-center text-slate-400">
-                            <p className="text-sm">Il gioco continua...</p>
-                        </div>
-                    </div>
+                        <p className="text-quote text-cream/40">Il gioco continua...</p>
+                    </PulpCard>
                 )}
 
+                {/* No result */}
                 {!result.runoff && !result.eliminated && (
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
-                        <h1 className="text-2xl font-bold text-amber-400 mb-4">Conteggio Voti</h1>
-                        <p className="text-slate-400">
+                    <PulpCard variant="vintage" className="p-8 text-center">
+                        <Headline glow="yellow">CONTEGGIO VOTI</Headline>
+                        <p className="text-cream/40">
                             Nessun voto ricevuto o errore nel conteggio.
                         </p>
-                    </div>
+                    </PulpCard>
                 )}
             </div>
-        </div>
+        </PageShell>
     );
 }

@@ -51,8 +51,9 @@ export const NPC_ARCHETYPES = [
     },
 ];
 
+// NPC count: ~75% of player count, min 3, max 7
 export const NPC_COUNT = {
-    4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 9: 6, 10: 6,
+    4: 3, 5: 3, 6: 4, 7: 5, 8: 6, 9: 6, 10: 7,
 };
 
 export const CONNECTION_TEMPLATES = {
@@ -87,8 +88,7 @@ export const CONNECTION_TEMPLATES = {
         '{name} ha forgiato qualcosa per me. Non posso dire cosa, ma non era un attrezzo da lavoro.',
     ],
     innkeeper: [
-        "Bardo beve alla mia locanda ogni sera. L'alcol scioglie la lingua...",
-        '{name} beve alla mia locanda ogni sera. L\'alcol scioglie la lingua...',
+        "{name} beve alla mia locanda ogni sera. L'alcol scioglie la lingua...",
         'Ho sentito {name} parlare troppo dopo il terzo bicchiere. Cose che non dovrei sapere.',
         '{name} si ferma sempre al mio bancone. Mi racconta tutto — forse troppo.',
         '{name} alla mia locanda passa spesso. E sempre con aria preoccupata.',

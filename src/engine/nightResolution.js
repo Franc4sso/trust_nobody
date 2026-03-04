@@ -1,6 +1,8 @@
+import { generateAnalystBonus } from './hints';
+
 /**
  * NightResolutionService translated from PHP.
- * Resolves night actions (killer + guardian).
+ * Resolves night actions (killer + guardian + analyst).
  * @param {Object} state - game state
  * @param {Array} nightActions - array of {action_type, actor_player_id, target_npc_id}
  * @returns {Object} {roundUpdate, npcUpdates} (immutable)
@@ -8,6 +10,7 @@
 export function resolveNight(state, nightActions) {
     const killerAction = nightActions.find(a => a.action_type === 'kill' || a.action_type === 'threaten');
     const guardianAction = nightActions.find(a => a.action_type === 'protect');
+    const analystAction = nightActions.find(a => a.action_type === 'analyst');
 
     const roundUpdate = {};
     const npcUpdates = {}; // Map of npc_id -> updates
@@ -50,6 +53,11 @@ export function resolveNight(state, nightActions) {
         }
     }
 
+    // Analyst bonus: generate hint and store in round for morning display
+    if (analystAction) {
+        roundUpdate.analyst_bonus_hint = generateAnalystBonus(state);
+    }
+
     return { roundUpdate, npcUpdates };
 }
 
@@ -70,7 +78,7 @@ function selectHintNpc(state) {
         : state.current_round - 1;
 
     let lastHintNpcId = null;
-    const lastRound = state.rounds?.find(r => r.round_number === lastRoundNumber - 1);
+    const lastRound = state.rounds?.find(r => r.round_number === lastRoundNumber);
     if (lastRound && lastRound.hint_npc_id) {
         lastHintNpcId = lastRound.hint_npc_id;
     }

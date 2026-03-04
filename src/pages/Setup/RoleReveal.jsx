@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, selectors } from '@/engine/gameState';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
+
+const roleStyles = {
+    serial_killer: { color: 'text-blood', glow: 'glow-red', border: 'border-blood', btnColor: 'red' },
+    guardian: { color: 'text-poison', glow: 'glow-green', border: 'border-poison', btnColor: 'green' },
+    medium: { color: 'text-morphine', glow: 'glow-purple', border: 'border-morphine', btnColor: 'pink' },
+    analyst: { color: 'text-neon-blue', glow: 'glow-blue', border: 'border-neon-blue', btnColor: 'blue' },
+    citizen: { color: 'text-cream', glow: '', border: 'border-tobacco', btnColor: 'yellow' },
+};
 
 export default function RoleReveal() {
     const navigate = useNavigate();
@@ -11,13 +23,13 @@ export default function RoleReveal() {
     const alivePlayers = selectors.alivePlayers(state);
 
     const player = alivePlayers[currentPlayerIndex];
+    const style = roleStyles[player?.role] || roleStyles.citizen;
 
     const nextPlayer = () => {
         if (currentPlayerIndex < alivePlayers.length - 1) {
             setCurrentPlayerIndex(currentPlayerIndex + 1);
             setRevealed(false);
         } else {
-            // All roles revealed, advance to N1
             dispatch({
                 type: ACTIONS.SET_PHASE_AND_ROUND,
                 payload: { phase: 'n1_intro' },
@@ -27,84 +39,68 @@ export default function RoleReveal() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center p-4">
+        <PageShell className="flex items-center justify-center p-4">
             <div className="max-w-lg w-full">
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-black bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent mb-2">
-                        Rivelazione Ruoli
-                    </h1>
-                    <p className="text-amber-300 font-semibold">
-                        {alivePlayers.length - currentPlayerIndex} giocatori rimangono
-                    </p>
-                </div>
+                <Headline glow="yellow" subtitle={`${alivePlayers.length - currentPlayerIndex} fascicoli rimangono`}>
+                    RIVELAZIONE RUOLI
+                </Headline>
 
                 {player && (
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-amber-500/30 rounded-3xl p-8 text-center space-y-6 shadow-2xl">
-                        {/* Player Name */}
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-2xl blur opacity-30"></div>
-                            <div className="relative bg-slate-900 rounded-2xl p-6 border-2 border-amber-500">
-                                <h2 className="text-3xl font-black text-amber-300">{player.name}</h2>
-                            </div>
+                    <PulpCard variant="vintage" className="text-center space-y-6 relative stamp-confidential animate-fade-in-up">
+                        {/* Player name */}
+                        <div className={`border-2 ${style.border} rounded-lg p-5 bg-noir/50`}>
+                            <h2 className={`text-headline text-4xl ${style.color}`}>{player.name}</h2>
                         </div>
 
-                        {/* Hidden/Revealed State */}
                         {!revealed ? (
-                            <div className="space-y-4 py-8">
-                                <div className="text-6xl">🔒</div>
-                                <p className="text-slate-300 text-lg font-semibold">Pronto a scoprire il tuo ruolo?</p>
-                                <button
-                                    onClick={() => setRevealed(true)}
-                                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-black font-black py-4 px-6 rounded-xl transition transform hover:scale-105 text-lg"
-                                >
+                            <div className="space-y-4 py-6">
+                                <div className="text-headline text-6xl text-tobacco">?</div>
+                                <p className="text-quote text-cream/60 text-lg">Pronto a scoprire il tuo ruolo?</p>
+                                <NeonButton color="yellow" onClick={() => setRevealed(true)}>
                                     Rivela Ruolo
-                                </button>
+                                </NeonButton>
                             </div>
                         ) : (
-                            <div className="space-y-6 py-6 animate-in fade-in duration-500">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-amber-500/20 rounded-xl blur-lg"></div>
-                                    <div className="relative bg-black/40 rounded-xl p-6 border-2 border-amber-400">
-                                        <p className="text-slate-300 text-xs font-bold tracking-widest uppercase mb-3">Il tuo ruolo è</p>
-                                        <p className="text-4xl font-black text-amber-300">{player.role_label}</p>
-                                    </div>
+                            <div className="space-y-6 py-4 animate-fade-in-up">
+                                <div className={`border-2 ${style.border} rounded-lg p-6 bg-noir/60`}>
+                                    <p className="text-ui text-cream/40 text-xs uppercase tracking-widest mb-3">Il tuo ruolo è</p>
+                                    <p className={`text-headline text-5xl ${style.color} ${style.glow}`}>
+                                        {player.role_label}
+                                    </p>
                                 </div>
 
-                                <div className="bg-black/40 rounded-xl p-5 border border-amber-400/30 min-h-24">
-                                    <p className="text-slate-200 text-sm leading-relaxed">
+                                <div className="card-pulp p-5 min-h-20">
+                                    <p className="text-cream/80 text-sm leading-relaxed">
                                         {player.role_description}
                                     </p>
                                 </div>
 
-                                <button
-                                    onClick={nextPlayer}
-                                    className="w-full bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-black font-black py-4 px-6 rounded-xl transition transform hover:scale-105 text-lg"
-                                >
+                                <NeonButton color={style.btnColor} onClick={nextPlayer}>
                                     {currentPlayerIndex < alivePlayers.length - 1
-                                        ? '→ Giocatore Successivo'
-                                        : '✓ Inizia Partita'}
-                                </button>
+                                        ? 'Giocatore Successivo'
+                                        : 'Inizia Partita'}
+                                </NeonButton>
                             </div>
                         )}
-                    </div>
+                    </PulpCard>
                 )}
 
-                {/* Progress indicator */}
+                {/* Progress: fascicoli */}
                 <div className="mt-8 flex gap-2 justify-center flex-wrap">
                     {alivePlayers.map((_, i) => (
                         <div
                             key={i}
-                            className={`h-3 rounded-full transition-all ${
+                            className={`h-2 rounded-full transition-all duration-300 ${
                                 i < currentPlayerIndex
-                                    ? 'w-8 bg-green-500'
+                                    ? 'w-8 bg-poison'
                                     : i === currentPlayerIndex
-                                    ? 'w-8 bg-amber-400'
-                                    : 'w-3 bg-slate-600'
+                                    ? 'w-8 bg-taxi animate-spotlight'
+                                    : 'w-3 bg-asphalt'
                             }`}
                         ></div>
                     ))}
                 </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

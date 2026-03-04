@@ -72,6 +72,9 @@ function gameReducer(state, action) {
             if (action.payload.round !== undefined) {
                 newState.current_round = action.payload.round;
             }
+            if (action.payload.current_round !== undefined) {
+                newState.current_round = action.payload.current_round;
+            }
             return newState;
         }
 

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, selectors } from '@/engine/gameState';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
 
 export default function NpcIntroductions() {
     const navigate = useNavigate();
@@ -15,7 +19,6 @@ export default function NpcIntroductions() {
         if (currentNpcIndex < npcs.length - 1) {
             setCurrentNpcIndex(currentNpcIndex + 1);
         } else {
-            // All NPCs introduced, move to first vote
             dispatch({
                 type: ACTIONS.SET_PHASE_AND_ROUND,
                 payload: { phase: 'n1_vote' },
@@ -25,47 +28,59 @@ export default function NpcIntroductions() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
-            <div className="max-w-lg w-full">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-amber-400">Presentazione NPC</h1>
-                    <p className="text-slate-400 mt-2">
-                        {npcs.length - currentNpcIndex - 1} NPC rimangono
-                    </p>
-                </div>
+        <PageShell>
+            <div className="p-6 max-w-lg mx-auto">
+                <Headline glow="yellow" subtitle={`${npcs.length - currentNpcIndex - 1} profili rimangono`}>
+                    PROFILI SOSPETTI
+                </Headline>
 
                 {npc && (
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6">
+                    <PulpCard variant="vintage" className="space-y-6 animate-fade-in-up" key={npc.id}>
+                        {/* NPC avatar placeholder + name */}
                         <div className="text-center">
-                            <h2 className="text-3xl font-bold text-amber-400">{npc.name}</h2>
-                            <p className="text-slate-400 text-sm capitalize">
-                                {npc.personality}
-                            </p>
+                            <div className="w-20 h-20 rounded-full border-2 border-taxi bg-asphalt mx-auto mb-4 flex items-center justify-center">
+                                <span className="text-headline text-3xl text-taxi">
+                                    {npc.name.charAt(0)}
+                                </span>
+                            </div>
+                            <h2 className="text-headline text-3xl text-taxi">{npc.name}</h2>
+                            <p className="text-quote text-cream/50 capitalize mt-1">{npc.personality}</p>
                         </div>
 
-                        <div className="bg-slate-900 rounded-lg p-6 border border-slate-700">
-                            <p className="text-slate-300 text-sm leading-relaxed">
+                        {/* Backstory */}
+                        <div className="card-pulp p-5">
+                            <p className="text-cream/70 text-sm leading-relaxed">
                                 {npc.backstory}
                             </p>
                         </div>
 
-                        <div className="space-y-3 bg-slate-700 rounded-lg p-4">
+                        {/* Connections as "handwritten notes" */}
+                        <div className="space-y-2 bg-noir/50 rounded-lg p-4 border-l-2 border-tobacco">
                             {(npc.connection_descriptions || []).map((conn, i) => (
-                                <div key={i} className="text-slate-200 text-sm italic">
-                                    "{conn.text}"
-                                </div>
+                                <p key={i} className="text-quote text-cream/60 text-sm">
+                                    &ldquo;{conn.text}&rdquo;
+                                </p>
                             ))}
                         </div>
 
-                        <button
-                            onClick={nextNpc}
-                            className="w-full bg-amber-600 hover:bg-amber-700 text-black font-bold py-3 px-6 rounded-lg transition"
-                        >
-                            NPC Successivo
-                        </button>
-                    </div>
+                        <NeonButton color="yellow" onClick={nextNpc}>
+                            {currentNpcIndex < npcs.length - 1 ? 'Prossimo Fascicolo' : 'Procedi'}
+                        </NeonButton>
+                    </PulpCard>
                 )}
+
+                {/* Progress */}
+                <div className="mt-6 flex gap-2 justify-center">
+                    {npcs.map((_, i) => (
+                        <div
+                            key={i}
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                                i <= currentNpcIndex ? 'w-6 bg-taxi' : 'w-3 bg-asphalt'
+                            }`}
+                        />
+                    ))}
+                </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

@@ -4,6 +4,10 @@ import { useGame, selectors } from '@/engine/gameState';
 import { advance } from '@/engine/stateMachine';
 import { checkWinCondition } from '@/engine/winCondition';
 import { getRouteForPhase } from '@/engine/phaseRoutes';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
 
 export default function MediumReveal() {
     const navigate = useNavigate();
@@ -14,8 +18,9 @@ export default function MediumReveal() {
         ? selectors.findPlayer(state, currentRound.eliminated_player_id)
         : null;
 
+    const isKiller = eliminatedPlayer?.role === 'serial_killer';
+
     const continueToNight = () => {
-        // Advance phase
         const { next, updates } = advance(state, checkWinCondition);
 
         dispatch({
@@ -27,53 +32,46 @@ export default function MediumReveal() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
-            <div className="max-w-lg w-full">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-purple-400">Medium Reveal</h1>
-                    <p className="text-slate-400 mt-2">
-                        Il medium ha investigato l'ultimo eliminato...
-                    </p>
-                </div>
+        <PageShell>
+            {/* Mystic purple glow */}
+            <div className="absolute inset-0 bg-gradient-to-b from-morphine/5 via-noir to-noir pointer-events-none" />
 
-                {eliminatedPlayer && (
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6">
-                        <div className="bg-slate-900 rounded-lg p-4 border-2 border-purple-500 text-center">
-                            <h2 className="text-2xl font-bold text-white">{eliminatedPlayer.name}</h2>
-                        </div>
+            <div className="p-6 max-w-lg mx-auto relative z-10 flex items-center justify-center min-h-screen">
+                <div className="w-full">
+                    <Headline glow="purple" subtitle="Il medium ha investigato l'ultimo eliminato...">
+                        MEDIUM REVEAL
+                    </Headline>
 
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-slate-400 text-sm mb-2">ERA UN...</p>
-                                <p className="text-3xl font-bold text-purple-300">
+                    {eliminatedPlayer && (
+                        <PulpCard className="space-y-6 animate-fade-in-up" style={{ borderColor: 'var(--color-morphine)' }}>
+                            {/* Player name */}
+                            <div className="border-2 border-morphine rounded-lg p-5 text-center bg-noir/60">
+                                <h2 className="text-headline text-3xl text-cream">{eliminatedPlayer.name}</h2>
+                            </div>
+
+                            {/* Verdict */}
+                            <div className="text-center py-4">
+                                <p className="text-headline text-sm text-cream/40 tracking-widest mb-3">ERA UN...</p>
+                                <p className={`text-headline text-5xl ${isKiller ? 'text-blood glow-red' : 'text-poison glow-green'}`}>
                                     {eliminatedPlayer.role_label}
                                 </p>
                             </div>
 
-                            <div>
-                                <p className="text-slate-300 text-sm leading-relaxed">
-                                    {eliminatedPlayer.role === 'serial_killer' ? (
-                                        <span className="text-red-400">
-                                            ⚠️ ERA IL KILLER!
-                                        </span>
-                                    ) : (
-                                        <span className="text-green-400">
-                                            ✓ Era innocente.
-                                        </span>
-                                    )}
-                                </p>
+                            <div className="text-center">
+                                {isKiller ? (
+                                    <p className="text-headline text-xl text-blood glow-red tracking-widest">COLPEVOLE</p>
+                                ) : (
+                                    <p className="text-headline text-xl text-poison glow-green tracking-widest">INNOCENTE</p>
+                                )}
                             </div>
-                        </div>
 
-                        <button
-                            onClick={continueToNight}
-                            className="w-full bg-amber-600 hover:bg-amber-700 text-black font-bold py-3 px-6 rounded-lg transition"
-                        >
-                            Continua alla Notte Successiva
-                        </button>
-                    </div>
-                )}
+                            <NeonButton color={isKiller ? 'red' : 'green'} onClick={continueToNight}>
+                                Continua alla Notte Successiva
+                            </NeonButton>
+                        </PulpCard>
+                    )}
+                </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

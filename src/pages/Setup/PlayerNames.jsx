@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '@/engine/gameState';
 import { assignRoles } from '@/engine/roles';
 import { generateNpcs } from '@/engine/npcGenerator';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import NeonButton from '@/components/NeonButton';
 
 export default function PlayerNames() {
     const navigate = useNavigate();
@@ -41,7 +44,6 @@ export default function PlayerNames() {
         setError('');
 
         try {
-            // Create player objects with sort_order
             const players = validNames.map((name, i) => ({
                 id: crypto.randomUUID(),
                 name: name.trim(),
@@ -52,13 +54,10 @@ export default function PlayerNames() {
                 role_description: null,
             }));
 
-            // Assign roles
             const playersWithRoles = assignRoles(players);
+            const killerIds = playersWithRoles.filter(p => p.role === 'serial_killer').map(p => p.id);
+            const npcs = await generateNpcs(playersWithRoles, killerIds);
 
-            // Generate NPCs (async, may call Groq)
-            const npcs = await generateNpcs(players);
-
-            // Update game state
             dispatch({
                 type: ACTIONS.SET_PLAYERS,
                 payload: playersWithRoles,
@@ -69,7 +68,6 @@ export default function PlayerNames() {
                 payload: npcs,
             });
 
-            // Navigate to role reveal
             navigate('/roles');
         } catch (err) {
             console.error('Setup error:', err);
@@ -80,33 +78,32 @@ export default function PlayerNames() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <PageShell>
             <div className="p-6 max-w-2xl mx-auto">
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-black bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent mb-2">
-                        Setup Partita
-                    </h1>
-                    <p className="text-amber-300 font-semibold">Inserisci i nomi dei giocatori</p>
-                </div>
+                <Headline glow="yellow" subtitle="Inserisci i nomi dei sospetti">
+                    SETUP PARTITA
+                </Headline>
 
                 {error && (
-                    <div className="bg-red-900/50 border border-red-500/70 text-red-200 px-5 py-4 rounded-2xl mb-6 font-semibold backdrop-blur">
-                        ⚠️ {error}
+                    <div className="card-pulp card-danger p-4 mb-6 animate-shake">
+                        <p className="text-ui text-blood font-semibold">{error}</p>
                     </div>
                 )}
 
                 <div className="space-y-3 mb-6">
                     {names.map((name, i) => (
-                        <div key={i} className="flex gap-3">
+                        <div key={i} className="flex gap-3 animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
                             <div className="flex-1 relative">
-                                <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-xl opacity-10 blur"></div>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-headline text-tobacco text-sm">
+                                    #{String(i + 1).padStart(2, '0')}
+                                </span>
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => updateName(i, e.target.value)}
-                                    placeholder={`Giocatore ${i + 1}`}
+                                    placeholder={`Sospetto ${i + 1}`}
                                     disabled={loading}
-                                    className="relative w-full bg-slate-800 border-2 border-amber-500/30 hover:border-amber-500/60 focus:border-amber-500 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none disabled:opacity-50 transition"
+                                    className="input-typewriter w-full pl-14 disabled:opacity-40"
                                     maxLength={30}
                                 />
                             </div>
@@ -114,9 +111,9 @@ export default function PlayerNames() {
                                 <button
                                     onClick={() => removePlayer(i)}
                                     disabled={loading}
-                                    className="bg-red-900/60 hover:bg-red-800 disabled:opacity-50 px-4 py-3 rounded-xl transition border border-red-500/50 font-bold"
+                                    className="btn-neon btn-neon-red px-4 py-2 text-sm disabled:opacity-40"
                                 >
-                                    ✕
+                                    X
                                 </button>
                             )}
                         </div>
@@ -125,40 +122,32 @@ export default function PlayerNames() {
 
                 <div className="flex gap-3 mb-8">
                     {names.length < 10 && (
-                        <button
-                            onClick={addPlayer}
-                            disabled={loading}
-                            className="flex-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-4 py-3 rounded-xl border-2 border-slate-600 hover:border-slate-500 transition font-bold text-white"
-                        >
-                            + Aggiungi Giocatore
-                        </button>
+                        <NeonButton color="yellow" onClick={addPlayer} disabled={loading} className="flex-1">
+                            + Aggiungi
+                        </NeonButton>
                     )}
-                    <button
-                        onClick={submit}
-                        disabled={loading}
-                        className="flex-1 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 disabled:opacity-50 font-black px-4 py-3 rounded-xl text-black transition transform hover:scale-105 shadow-lg"
-                    >
-                        {loading ? '⏳ Caricamento...' : '→ Avanti'}
-                    </button>
+                    <NeonButton color="red" onClick={submit} disabled={loading} className="flex-1">
+                        {loading ? 'Caricamento...' : 'Avanti'}
+                    </NeonButton>
                 </div>
 
                 {loading && (
-                    <div className="text-center space-y-3">
-                        <div className="text-amber-300 font-bold">Generazione NPC in corso...</div>
+                    <div className="text-center space-y-3 animate-fade-in-up">
+                        <p className="text-quote text-taxi text-lg">Generando profili sospetti...</p>
                         <div className="flex justify-center gap-2">
-                            <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
-                            <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse delay-100"></div>
-                            <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse delay-200"></div>
+                            <div className="w-2 h-2 bg-taxi rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-taxi rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-taxi rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
                         </div>
                     </div>
                 )}
 
-                <div className="mt-12 pt-8 border-t border-slate-700 text-center">
-                    <p className="text-slate-400 text-sm">
-                        💡 Suggerimento: Usa nomi di 4-10 giocatori per un'esperienza ottimale
+                <div className="mt-12 pt-6 border-t border-tobacco/30 text-center">
+                    <p className="text-ui text-cream/40 text-xs">
+                        Usa nomi di 4-10 giocatori per un'esperienza ottimale
                     </p>
                 </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

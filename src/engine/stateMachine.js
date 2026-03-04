@@ -54,11 +54,21 @@ export function advance(state, winConditionChecker) {
             break;
         case PHASES.VOTE:
             next = afterVote(state, winConditionChecker);
+            if (next === PHASES.NIGHT) {
+                shouldIncrementRound = true;
+            }
             break;
         case PHASES.MEDIUM_REVEAL:
             next = afterMediumReveal(state, winConditionChecker);
+            if (next === PHASES.NIGHT) {
+                shouldIncrementRound = true;
+            }
             break;
         case PHASES.GAME_OVER:
+            next = PHASES.GAME_OVER;
+            break;
+        default:
+            console.warn(`[stateMachine] Unknown phase: ${current}`);
             next = PHASES.GAME_OVER;
             break;
     }

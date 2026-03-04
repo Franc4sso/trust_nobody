@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, selectors } from '@/engine/gameState';
 import { tally } from '@/engine/vote';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
 
 export default function MasterVotePanel() {
     const navigate = useNavigate();
@@ -12,93 +16,121 @@ export default function MasterVotePanel() {
     const [runoffPlayers, setRunoffPlayers] = useState(null);
 
     const alivePlayers = selectors.alivePlayers(state);
-    const voter = alivePlayers[currentVoterIndex];
 
+    useEffect(() => {
+        if (state.runoff_active && state.runoff_player_ids?.length > 0 && runoffPlayers === null) {
+            const restored = alivePlayers.filter(p => state.runoff_player_ids.includes(p.id));
+            if (restored.length > 0) {
+                setRunoffPlayers(restored);
+            }
+        }
+    }, [state.runoff_active]);
+
+    const voter = alivePlayers[currentVoterIndex];
     const targets = runoffPlayers || alivePlayers.filter(p => p.id !== voter.id);
 
     const submitVote = () => {
         if (!selectedPlayerId) return;
 
-        // Add vote
+        const newVote = {
+            round_number: state.current_round,
+            voter_player_id: voter.id,
+            target_player_id: selectedPlayerId,
+            is_runoff: runoffPlayers !== null,
+        };
+
         dispatch({
             type: ACTIONS.ADD_VOTE,
-            payload: {
-                round_number: state.current_round,
-                voter_player_id: voter.id,
-                target_player_id: selectedPlayerId,
-                is_runoff: runoffPlayers !== null,
-            },
+            payload: newVote,
         });
 
-        // Move to next voter or finish
         if (currentVoterIndex < alivePlayers.length - 1) {
             setCurrentVoterIndex(currentVoterIndex + 1);
             setSelectedPlayerId(null);
         } else {
-            // Check tally
-            const result = tally(state, runoffPlayers !== null);
+            const stateWithLastVote = { ...state, votes: [...state.votes, newVote] };
+            const result = tally(stateWithLastVote, runoffPlayers !== null);
 
             if (result.runoff) {
-                // Start runoff
+                dispatch({
+                    type: ACTIONS.SET_RUNOFF,
+                    payload: { active: true, player_ids: result.runoff.map(p => p.id) },
+                });
                 setRunoffPlayers(result.runoff);
                 setCurrentVoterIndex(0);
                 setSelectedPlayerId(null);
             } else {
-                // Vote is over, go to result
+                dispatch({
+                    type: ACTIONS.SET_RUNOFF,
+                    payload: { active: false, player_ids: [] },
+                });
                 navigate('/vote/result');
             }
         }
     };
 
-    const processRunoff = () => {
-        const result = tally(state, true);
-        navigate('/vote/result');
-    };
-
     return (
-        <div className="min-h-screen bg-slate-900 text-white">
+        <PageShell>
             <div className="p-6 max-w-2xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-2xl font-bold text-amber-400">
-                        {runoffPlayers ? 'Ballottaggio' : 'Voto Giornaliero'}
-                    </h1>
-                    <p className="text-slate-400 mt-2">
-                        {alivePlayers.length - currentVoterIndex} votanti rimangono
-                    </p>
-                </div>
+                <Headline
+                    glow={runoffPlayers ? 'pink' : 'yellow'}
+                    subtitle={`${alivePlayers.length - currentVoterIndex} votanti rimangono`}
+                >
+                    {runoffPlayers ? 'BALLOTTAGGIO' : 'IL VERDETTO'}
+                </Headline>
+
+                {runoffPlayers && (
+                    <div className="card-pulp card-neon p-3 mb-6 text-center animate-neon-flicker">
+                        <p className="text-headline text-sm text-neon-pink tracking-widest">BALLOTTAGGIO IN CORSO</p>
+                    </div>
+                )}
 
                 {voter && (
-                    <>
-                        <div className="bg-amber-900 border border-amber-700 rounded-lg p-4 mb-6 text-center">
-                            <p className="text-amber-200 font-semibold">{voter.name}</p>
+                    <div className="space-y-5 animate-fade-in-up">
+                        {/* Current voter spotlight */}
+                        <div className="border-2 border-taxi rounded-lg p-5 text-center bg-noir/50 animate-spotlight">
+                            <p className="text-headline text-sm text-cream/40 tracking-widest mb-1">Sta votando:</p>
+                            <h2 className="text-headline text-3xl text-taxi">{voter.name}</h2>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 mb-6">
+                        {/* Targets */}
+                        <div className="grid grid-cols-1 gap-3">
                             {targets.map((target) => (
                                 <button
                                     key={target.id}
                                     onClick={() => setSelectedPlayerId(target.id)}
-                                    className={`p-4 rounded-lg border-2 transition ${
+                                    className={`p-4 rounded-lg border-2 transition-all text-left ${
                                         selectedPlayerId === target.id
-                                            ? 'border-amber-400 bg-amber-900'
-                                            : 'border-slate-700 bg-slate-800 hover:border-amber-600'
+                                            ? 'border-neon-pink bg-neon-pink/10 shadow-[0_0_20px_rgba(255,45,107,0.2)]'
+                                            : 'border-asphalt bg-asphalt/50 hover:border-tobacco'
                                     }`}
                                 >
-                                    <p className="font-bold">{target.name}</p>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-ui font-semibold text-cream">{target.name}</span>
+                                        {selectedPlayerId === target.id && (
+                                            <span className="text-poison text-lg">&#10003;</span>
+                                        )}
+                                    </div>
                                 </button>
                             ))}
                         </div>
 
-                        <button
-                            onClick={submitVote}
-                            disabled={!selectedPlayerId}
-                            className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-black font-bold py-3 px-6 rounded-lg transition"
-                        >
+                        <NeonButton color="red" onClick={submitVote} disabled={!selectedPlayerId}>
                             Vota
-                        </button>
-                    </>
+                        </NeonButton>
+
+                        {/* Progress bar */}
+                        <div className="h-2 bg-asphalt rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-blood rounded-full transition-all duration-300"
+                                style={{
+                                    width: `${((currentVoterIndex + 1) / alivePlayers.length) * 100}%`,
+                                }}
+                            />
+                        </div>
+                    </div>
                 )}
             </div>
-        </div>
+        </PageShell>
     );
 }

@@ -5,22 +5,24 @@ import { resolveNight } from '@/engine/nightResolution';
 import { checkWinCondition } from '@/engine/winCondition';
 import { advance } from '@/engine/stateMachine';
 import { getRouteForPhase } from '@/engine/phaseRoutes';
+import PageShell from '@/components/PageShell';
+import Headline from '@/components/Headline';
+import PulpCard from '@/components/PulpCard';
+import NeonButton from '@/components/NeonButton';
 
 export default function MasterNightPanel() {
     const navigate = useNavigate();
     const { state, dispatch, ACTIONS } = useGame();
 
-    const [step, setStep] = useState('killer'); // 'killer', 'guardian', 'analyst', 'summary'
+    const [step, setStep] = useState('killer');
     const [nightly_actions, setNightlyActions] = useState([]);
 
     const killers = selectors.aliveKillers(state);
     const guardians = state.players.filter(p => p.is_alive && p.role === 'guardian');
-    const analysts = state.players.filter(p => p.is_alive && p.role === 'analyst' && !state.analyst_used);
+    const analysts = state.players.filter(p => p.is_alive && p.role === 'analyst' && !p.analyst_used);
     const alivePlayers = selectors.alivePlayers(state);
     const aliveNpcs = selectors.aliveNpcs(state);
 
-    // if we somehow end up on the analyst step but there is no analyst available,
-    // immediately advance to summary to avoid a blank screen.
     useEffect(() => {
         if (step === 'analyst' && analysts.length === 0) {
             setStep('summary');
@@ -30,10 +32,8 @@ export default function MasterNightPanel() {
     const addAction = (action) => {
         setNightlyActions([...nightly_actions, action]);
         if (step === 'killer' && guardians.length > 0) {
-            // after killer action move to guardian if present
             setStep('guardian');
         } else if (step === 'guardian') {
-            // after guardian action, only go to analyst if there is one still available
             if (analysts.length > 0) {
                 setStep('analyst');
             } else {
@@ -57,16 +57,13 @@ export default function MasterNightPanel() {
     };
 
     const resolveAndContinue = () => {
-        // Resolve night with accumulated actions
         const { roundUpdate, npcUpdates } = resolveNight(state, nightly_actions);
 
-        // Dispatch RESOLVE_NIGHT
         dispatch({
             type: ACTIONS.RESOLVE_NIGHT,
             payload: { roundUpdate, npcUpdates },
         });
 
-        // Check win condition
         const newState = {
             ...state,
             npcs: state.npcs.map(n =>
@@ -84,45 +81,54 @@ export default function MasterNightPanel() {
             return;
         }
 
-        // Advance phase
         const { next, updates } = advance(newState, checkWinCondition);
 
-        // Update state with new phase
         dispatch({
             type: ACTIONS.SET_PHASE_AND_ROUND,
             payload: { phase: next, ...updates },
         });
 
-        // Navigate to new phase
         navigate(getRouteForPhase(next));
     };
 
-    return (
-        <div className="min-h-screen bg-slate-900 text-white">
-            <div className="p-6 max-w-2xl mx-auto">
-                <h1 className="text-2xl font-bold text-amber-400 mb-2">Notte {state.current_round}</h1>
-                <p className="text-slate-400 mb-6">Fase: {step}</p>
+    const stepLabels = {
+        killer: { title: 'AZIONE KILLER', color: 'red' },
+        guardian: { title: 'AZIONE GUARDIANO', color: 'green' },
+        analyst: { title: 'AZIONE ANALISTA', color: 'blue' },
+        summary: { title: 'RAPPORTO NOTTURNO', color: 'yellow' },
+    };
 
+    const current = stepLabels[step];
+
+    return (
+        <PageShell vignette>
+            <div className="p-6 max-w-2xl mx-auto relative z-10">
+                <Headline glow="red" subtitle={`Fase: ${step}`}>
+                    NOTTE {state.current_round}
+                </Headline>
+
+                {/* Dead NPCs warning */}
                 {state.npcs.filter(n => !n.is_alive).length > 0 && (
-                    <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
-                        <p className="text-red-200 font-semibold">NPC già morti:</p>
-                        <ul className="list-disc list-inside text-red-300">
+                    <PulpCard variant="danger" className="mb-6 p-4">
+                        <p className="text-headline text-sm text-blood tracking-widest mb-2">NPC GIA' ELIMINATI:</p>
+                        <div className="space-y-1">
                             {state.npcs.filter(n => !n.is_alive).map(n => (
-                                <li key={n.id}>{n.name}</li>
+                                <p key={n.id} className="text-ui text-cream/50 text-sm line-through">{n.name}</p>
                             ))}
-                        </ul>
-                    </div>
+                        </div>
+                    </PulpCard>
                 )}
 
+                {/* Killer Step */}
                 {step === 'killer' && killers.length > 0 && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold">Azione Serial Killer</h2>
-                        <p className="text-slate-400">Scegli un NPC e un'azione</p>
+                    <div className="space-y-4 animate-fade-in-up">
+                        <h2 className="text-headline text-2xl text-blood glow-red">{current.title}</h2>
+                        <p className="text-cream/50 text-sm">Scegli un NPC e un'azione</p>
 
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-3">
                             {aliveNpcs.map((npc) => (
-                                <div key={npc.id} className="border border-slate-700 rounded-lg p-4 space-y-2 bg-slate-800/50">
-                                    <p className="font-bold text-red-300">{npc.name}</p>
+                                <PulpCard key={npc.id} variant="danger" className="p-4 space-y-3">
+                                    <p className="text-headline text-lg text-blood">{npc.name}</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         <button
                                             onClick={() =>
@@ -133,9 +139,9 @@ export default function MasterNightPanel() {
                                                     round_number: state.current_round,
                                                 })
                                             }
-                                            className="p-3 bg-red-900 hover:bg-red-800 rounded text-sm font-bold"
+                                            className="btn-blood py-2 text-sm"
                                         >
-                                            ☠️ Uccidi
+                                            Uccidi
                                         </button>
                                         <button
                                             onClick={() =>
@@ -146,30 +152,28 @@ export default function MasterNightPanel() {
                                                     round_number: state.current_round,
                                                 })
                                             }
-                                            className="p-3 bg-orange-900 hover:bg-orange-800 rounded text-sm font-bold"
+                                            className="btn-neon btn-neon-yellow py-2 text-sm"
                                         >
-                                            ⚠️ Minaccia
+                                            Minaccia
                                         </button>
                                     </div>
-                                </div>
+                                </PulpCard>
                             ))}
                         </div>
 
-                        <button
-                            onClick={skipPhase}
-                            className="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg"
-                        >
+                        <button onClick={skipPhase} className="w-full text-ui text-cream/40 text-sm py-2 hover:text-cream/60 transition">
                             Salta
                         </button>
                     </div>
                 )}
 
+                {/* Guardian Step */}
                 {step === 'guardian' && guardians.length > 0 && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold">Azione Guardiano</h2>
-                        <p className="text-slate-400">Scegli un NPC da proteggere</p>
+                    <div className="space-y-4 animate-fade-in-up">
+                        <h2 className="text-headline text-2xl text-poison glow-green">{current.title}</h2>
+                        <p className="text-cream/50 text-sm">Scegli un NPC da proteggere</p>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {aliveNpcs.map((npc) => (
                                 <button
                                     key={npc.id}
@@ -181,37 +185,37 @@ export default function MasterNightPanel() {
                                             round_number: state.current_round,
                                         })
                                     }
-                                    className="p-4 bg-blue-900 hover:bg-blue-800 rounded-lg text-center"
+                                    className="card-pulp p-4 text-center hover:border-poison transition-all"
+                                    style={{ borderColor: 'var(--color-poison)' }}
                                 >
-                                    <p className="font-bold">{npc.name}</p>
-                                    <p className="text-xs text-blue-200">Proteggi</p>
+                                    <p className="text-headline text-lg text-poison">{npc.name}</p>
+                                    <p className="text-ui text-xs text-cream/40 mt-1">Proteggi</p>
                                 </button>
                             ))}
                         </div>
 
-                        <button
-                            onClick={skipPhase}
-                            className="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg"
-                        >
+                        <button onClick={skipPhase} className="w-full text-ui text-cream/40 text-sm py-2 hover:text-cream/60 transition">
                             Salta
                         </button>
                     </div>
                 )}
 
+                {/* Analyst Step */}
                 {step === 'analyst' && analysts.length > 0 && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold">Azione Analista</h2>
-                        <p className="text-slate-400">Attiva il tuo potere?</p>
+                    <div className="space-y-4 animate-fade-in-up">
+                        <h2 className="text-headline text-2xl text-neon-blue glow-blue">{current.title}</h2>
+                        <p className="text-cream/50 text-sm">Attiva il tuo potere?</p>
 
-                        <div className="flex gap-4">
-                            <button
+                        <div className="flex gap-3">
+                            <NeonButton
+                                color="blue"
+                                className="flex-1"
                                 onClick={() => {
                                     addAction({
                                         action_type: 'analyst',
                                         actor_player_id: analysts[0].id,
                                         round_number: state.current_round,
                                     });
-                                    // Mark analyst as used
                                     dispatch({
                                         type: ACTIONS.UPDATE_PLAYER,
                                         payload: {
@@ -220,13 +224,12 @@ export default function MasterNightPanel() {
                                         },
                                     });
                                 }}
-                                className="flex-1 bg-purple-900 hover:bg-purple-800 py-3 rounded-lg font-bold"
                             >
                                 Attiva Potere
-                            </button>
+                            </NeonButton>
                             <button
                                 onClick={skipPhase}
-                                className="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg"
+                                className="flex-1 btn-neon btn-neon-yellow py-3 text-sm"
                             >
                                 Non Attivare
                             </button>
@@ -234,31 +237,29 @@ export default function MasterNightPanel() {
                     </div>
                 )}
 
+                {/* Summary */}
                 {step === 'summary' && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold">Riepilogo Azioni Notturne</h2>
+                    <div className="space-y-4 animate-fade-in-up">
+                        <h2 className="text-headline text-2xl text-taxi glow-yellow">{current.title}</h2>
 
-                        <div className="bg-slate-800 p-4 rounded-lg space-y-2 max-h-64 overflow-y-auto">
+                        <PulpCard variant="vintage" className="p-5 space-y-2 max-h-64 overflow-y-auto">
                             {nightly_actions.length === 0 ? (
-                                <p className="text-slate-400">Nessuna azione</p>
+                                <p className="text-cream/40 text-sm">Nessuna azione registrata</p>
                             ) : (
                                 nightly_actions.map((action, i) => (
-                                    <p key={i} className="text-sm text-slate-300">
-                                        • {action.action_type}
+                                    <p key={i} className="text-ui text-sm text-cream/70">
+                                        &bull; {action.action_type}
                                     </p>
                                 ))
                             )}
-                        </div>
+                        </PulpCard>
 
-                        <button
-                            onClick={resolveAndContinue}
-                            className="w-full bg-amber-600 hover:bg-amber-700 font-bold py-3 rounded-lg"
-                        >
+                        <NeonButton color="yellow" onClick={resolveAndContinue}>
                             Continua al Mattino
-                        </button>
+                        </NeonButton>
                     </div>
                 )}
             </div>
-        </div>
+        </PageShell>
     );
 }

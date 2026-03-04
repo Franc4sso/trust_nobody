@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '@/engine/gameState';
+import PageShell from '@/components/PageShell';
+import NeonButton from '@/components/NeonButton';
 
 export default function Home() {
     const navigate = useNavigate();
@@ -18,67 +20,63 @@ export default function Home() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-black text-white flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Animated background */}
-            <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 left-0 w-96 h-96 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-                <div className="absolute top-0 right-0 w-96 h-96 bg-red-500 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-2000"></div>
+        <PageShell className="flex items-center justify-center p-4">
+            {/* Neon glow background effects */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-5%] w-80 h-80 bg-blood/20 rounded-full blur-[120px] animate-pulse"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-80 h-80 bg-neon-pink/10 rounded-full blur-[120px] animate-pulse"></div>
+                <div className="absolute top-[30%] right-[10%] w-40 h-40 bg-taxi/10 rounded-full blur-[80px]"></div>
             </div>
 
-            <div className="relative max-w-md w-full text-center z-10">
+            <div className="relative max-w-md w-full text-center z-10 animate-fade-in-up">
+                {/* Title */}
                 <div className="mb-12">
-                    <div className="text-7xl font-black mb-4 leading-tight">
-                        <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 bg-clip-text text-transparent">
-                            Trust
-                        </span>
-                        <br />
-                        <span className="bg-gradient-to-r from-red-400 to-pink-400 bg-clip-text text-transparent">
-                            Nobody
-                        </span>
-                    </div>
-                    <p className="text-slate-300 text-lg leading-relaxed px-4">
-                        Un gioco di deduzione e inganno per <span className="font-bold text-amber-300">4-10 giocatori</span>.
+                    <h1 className="text-headline text-8xl text-blood glow-red animate-neon-flicker leading-none mb-1">
+                        TRUST
+                    </h1>
+                    <h1 className="text-headline text-8xl text-taxi glow-yellow leading-none mb-6">
+                        NOBODY
+                    </h1>
+                    <p className="text-quote text-cream/60 text-lg">
+                        Nessuno è al sicuro...
                     </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-amber-500/20 rounded-3xl p-8 space-y-4 shadow-2xl mb-8">
-                    <button
-                        onClick={startNewGame}
-                        className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-black font-black py-4 px-6 rounded-2xl transition transform hover:scale-105 hover:shadow-2xl shadow-lg text-lg"
-                    >
-                        🎮 Nuova Partita
-                    </button>
+                {/* Buttons */}
+                <div className="space-y-4 mb-10">
+                    <NeonButton color="red" onClick={startNewGame}>
+                        Nuova Partita
+                    </NeonButton>
 
                     {state.id && (
-                        <button
-                            onClick={continueGame}
-                            className="w-full bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white font-bold py-4 px-6 rounded-2xl transition transform hover:scale-105 shadow-lg text-lg"
-                        >
-                            ↻ Continua Partita
-                        </button>
+                        <NeonButton color="blue" onClick={continueGame}>
+                            Continua Partita
+                        </NeonButton>
                     )}
                 </div>
 
-                <div className="space-y-4 px-4">
-                    <div className="bg-black/50 backdrop-blur border border-amber-500/20 rounded-2xl p-4">
-                        <p className="text-slate-300 text-sm leading-relaxed">
-                            <span className="text-red-400 font-bold">🔴 Serial Killer:</span> Ti aggiri tra gli NPC. Elimina i cittadini per vincere.
+                {/* Info cards */}
+                <div className="space-y-3 px-2">
+                    <div className="card-pulp card-danger p-4">
+                        <p className="text-ui text-sm text-cream/80">
+                            <span className="text-blood font-bold">Serial Killer:</span> Ti aggiri tra gli NPC. Elimina i cittadini per vincere.
                         </p>
                     </div>
-                    <div className="bg-black/50 backdrop-blur border border-amber-500/20 rounded-2xl p-4">
-                        <p className="text-slate-300 text-sm leading-relaxed">
-                            <span className="text-green-400 font-bold">🟢 Cittadini:</span> Trovate e votate il killer prima che sia troppo tardi.
+                    <div className="card-pulp p-4" style={{ borderColor: 'var(--color-poison)' }}>
+                        <p className="text-ui text-sm text-cream/80">
+                            <span className="text-poison font-bold">Cittadini:</span> Trovate e votate il killer prima che sia troppo tardi.
                         </p>
                     </div>
                 </div>
 
-                <div className="mt-12 pt-8 border-t border-slate-700">
-                    <p className="text-slate-500 text-xs uppercase tracking-widest">Master di partita</p>
-                    <p className="text-slate-400 text-sm mt-2">
-                        Il telefono rimane con il master durante tutto il gioco. Loro controllano le fasi e rivelano le informazioni.
+                {/* Footer */}
+                <div className="mt-12 pt-6 border-t border-tobacco/30">
+                    <p className="text-headline text-tobacco text-sm tracking-widest">Master di partita</p>
+                    <p className="text-ui text-cream/40 text-xs mt-2">
+                        Il telefono rimane con il master durante tutto il gioco.
                     </p>
                 </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

@@ -7,9 +7,12 @@
  */
 export function generateHint(state, npc, isThreatened) {
     const round = state.current_round;
-    const connections = npc.connections ?? [];
     const players = state.players ?? [];
+    const alivePlayerIds = players.filter((p) => p.is_alive).map((p) => p.id);
     const playerNames = Object.fromEntries(players.map((p) => [p.id, p.name]));
+
+    // Filter out dead players from connections
+    const connections = (npc.connections ?? []).filter((id) => alivePlayerIds.includes(id));
 
     const connNames = connections.map((id) => playerNames[id] ?? 'Sconosciuto');
     const killerIds = players.filter((p) => p.role === 'serial_killer').map((p) => p.id);
@@ -146,67 +149,79 @@ function analyzeVotePatterns(state, playerNames, killerIds, allVotes) {
 
 function threatenedHint(state, connNames, connKillerIds, connInnocentIds, playerNames, round) {
     const alivePlayerIds = (state.players ?? []).filter((p) => p.is_alive).map((p) => p.id);
+    const aliveKillerConnIds = connKillerIds.filter((id) => alivePlayerIds.includes(id));
     const aliveInnocentConnIds = connInnocentIds.filter((id) => alivePlayerIds.includes(id));
+    const killerNames = aliveKillerConnIds.map((id) => playerNames[id]);
     const innocentNames = aliveInnocentConnIds.map((id) => playerNames[id]);
 
-    if (innocentNames.length >= 2) {
-        shuffle_arr(innocentNames);
-        const name1 = innocentNames[0];
-        const name2 = innocentNames[1];
-        const name3 = innocentNames[2] ?? null;
-        const nameList = innocentNames.join(', ');
+    const knowsKiller = killerNames.length > 0;
+
+    // NPC knows a killer: include killer name mixed with 1-2 innocents (subdued, confusing tone)
+    if (knowsKiller && innocentNames.length >= 1) {
+        const killerName = killerNames[0];
+        const extras = shuffle_arr([...innocentNames]).slice(0, 2);
+        const mixedNames = shuffle_arr([killerName, ...extras]);
+        const nameList = mixedNames.join(', ');
 
         let templates;
         if (round <= 2) {
             templates = [
-                `Ho visto ${nameList} aggirarsi la scorsa notte. Uno di loro nasconde qualcosa.`,
-                `Tra le persone che conosco — ${nameList} — qualcuno non è chi dice di essere.`,
-                `Conosco ${nameList}. Uno di loro mi mette a disagio, ma non saprei dire chi.`,
-                `${nameList}... li osservo da un po'. C'è qualcosa che non quadra in uno di loro.`,
+                `Non... non riesco a pensare lucidamente. Ho paura. Ma tra ${nameList}... c'è qualcosa che non va. Non so chi, ma lo sento.`,
+                `Mi tremano le mani. Ho visto ${nameList} muoversi di notte... uno di loro mi ha guardato in un modo che non dimenticherò.`,
+                `Sto male... ho paura di parlare. Ma devo dirvi: ${nameList}... uno di loro non è quello che sembra. Non chiedetemi di più.`,
+                `Vi prego, fate attenzione a ${nameList}. Non posso dire altro... ho troppa paura.`,
             ];
         } else if (round <= 4) {
-            const shortList = name3 ? `${name1}, ${name2} e ${name3}` : nameList;
             templates = [
-                `Tra ${nameList}, il cerchio si stringe. Osservate chi è più nervoso.`,
-                `Qualcuno tra ${shortList} non dice tutta la verità. Ne sono certo.`,
-                `Le mie osservazioni mi portano a sospettare di qualcuno tra ${shortList}. Ma chi?`,
-                `Ho notato comportamenti strani tra ${shortList}. Qualcuno di loro nasconde qualcosa.`,
+                `Ogni notte è peggio. Tra ${nameList}... qualcuno mi sta tenendo d'occhio. Lo sento. Ma non riesco a capire chi dei tre.`,
+                `Mi hanno minacciato, lo so. Ma devo dirvi: ${nameList}... il pericolo è tra di loro. Uno di loro è il mostro.`,
+                `Non dormo più. ${nameList}... li ho osservati tutti. Uno di loro nasconde qualcosa di terribile, ne sono sicuro.`,
             ];
         } else {
-            const shortList = name3 ? `${name1}, ${name2} o ${name3}` : `${name1}, ${name2} o qualcun altro tra chi conosco`;
             templates = [
-                `Posso restringere: tra ${shortList}. Uno di loro mente.`,
-                `Dopo tutto quello che ho visto, il colpevole è tra ${shortList}.`,
-                `Sono quasi certo: ${shortList}. Uno di questi ha le mani sporche.`,
-                `Vi dico solo questo: guardate bene ${shortList}. La risposta è lì.`,
+                `Non ce la faccio più. ${nameList}... uno di loro è il killer. Lo so, lo SENTO. Ma la paura mi confonde... non so dire chi.`,
+                `Vi supplico, guardate ${nameList}. Tra di loro c'è chi uccide. Io... io non posso dire di più. Mi troverà.`,
+                `È lì. Tra ${nameList}. L'assassino è uno di loro. Ma io sono troppo spaventato per pensare chiaramente.`,
             ];
         }
+        return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    // NPC knows killer but has no innocents to mix with: vague fearful hint
+    if (knowsKiller) {
+        const templates = [
+            "Ho visto qualcosa... qualcosa di terribile. Ma non posso parlare. Mi troverebbe.",
+            "So chi è. Lo so. Ma se parlo... no, non posso. Cercate tra chi mi conosce.",
+            "Il killer sa che io so. Non posso dire il nome. Ma è vicino. Troppo vicino.",
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    // NPC doesn't know killer: only innocents to accuse (same as before, misleading)
+    if (innocentNames.length >= 2) {
+        shuffle_arr(innocentNames);
+        const nameList = innocentNames.slice(0, 3).join(', ');
+        const templates = [
+            `Non mi fido di nessuno ormai. Ma ${nameList}... qualcosa in loro non mi convince. Ho paura.`,
+            `Ho sentito dei rumori la notte scorsa. ${nameList} erano svegli. Uno di loro nasconde qualcosa, ne sono certo.`,
+            `Sto impazzendo dalla paura. Ma vi dico: ${nameList}... guardateli bene. Qualcuno tra loro mente.`,
+        ];
         return templates[Math.floor(Math.random() * templates.length)];
     }
 
     if (innocentNames.length === 1) {
         const name = innocentNames[0];
-        let templates;
-        if (round <= 2) {
-            templates = [
-                `Tra le persone che conosco, ${name} mi mette a disagio. Non saprei dire perché.`,
-                `Ho osservato ${name} attentamente. C'è qualcosa che non torna.`,
-            ];
-        } else {
-            templates = [
-                `Le mie osservazioni mi portano a sospettare di ${name}. Qualcosa non quadra.`,
-                `Dopo tutto quello che ho visto, ${name} è in cima alla mia lista di sospetti.`,
-            ];
-        }
+        const templates = [
+            `Ho paura... ma devo dirvi: ${name} si comporta in modo strano. Non so se sia il killer, ma qualcosa non torna.`,
+            `Non riesco a dormire. ${name}... l'ho visto fare qualcosa di notte. O forse me lo sono immaginato. Non lo so più.`,
+        ];
         return templates[Math.floor(Math.random() * templates.length)];
     }
 
     const templates = [
-        "Non ho notato nulla di sospetto tra chi conosco. Ma qualcosa nell'aria è cambiato.",
-        "Le votazioni dell'ultimo turno mi hanno fatto pensare. Qualcuno tra voi sta giocando sporco.",
-        "Ho osservato tutti attentamente. Il pericolo è vicino, ma non riesco a capire da dove viene.",
-        "Qualcosa non quadra nel villaggio. Non mi fido più di nessuno.",
-        "La notte scorsa ho sentito dei passi. Qualcuno si muove nell'ombra, ma non so chi.",
+        "Ho troppa paura per parlare. Qualcuno mi osserva. Non so chi sia il killer ma... è vicino.",
+        "La notte scorsa ho sentito dei passi fuori dalla porta. Non so chi fosse. Ma so che mi cercano.",
+        "Non mi fido più di nessuno. Qualcosa di orribile sta succedendo e io sono nel mirino.",
     ];
     return templates[Math.floor(Math.random() * templates.length)];
 }
