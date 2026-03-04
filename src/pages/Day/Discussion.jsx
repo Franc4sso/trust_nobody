@@ -20,6 +20,12 @@ export default function Discussion() {
         ? selectors.findPlayer(state, currentRound.eliminated_player_id)
         : null;
 
+    const killedNpc = currentRound?.killer_target_npc_id
+        ? selectors.findNpc(state, currentRound.killer_target_npc_id)
+        : null;
+    // only treat as killed if the npc exists and is_alive is false (kill not blocked)
+    const showKilledNpc = killedNpc && !killedNpc.is_alive ? killedNpc : null;
+
     return (
         <div className="min-h-screen bg-slate-900 text-white">
             <div className="p-6 max-w-2xl mx-auto">
@@ -28,8 +34,15 @@ export default function Discussion() {
 
                 {eliminated && (
                     <div className="bg-red-900 border border-red-700 rounded-lg p-6 mb-8">
-                        <p className="text-red-200 mb-2">Ucciso durante la notte:</p>
+                        <p className="text-red-200 mb-2">Giocatore eliminato:</p>
                         <p className="text-2xl font-bold text-red-400">{eliminated.name}</p>
+                    </div>
+                )}
+
+                {showKilledNpc && (
+                    <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-8">
+                        <p className="text-red-200 mb-2">NPC ucciso durante la notte:</p>
+                        <p className="text-2xl font-bold text-red-400">{showKilledNpc.name}</p>
                     </div>
                 )}
 

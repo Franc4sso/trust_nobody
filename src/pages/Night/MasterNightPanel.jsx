@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, selectors } from '@/engine/gameState';
 import { resolveNight } from '@/engine/nightResolution';
@@ -19,12 +19,26 @@ export default function MasterNightPanel() {
     const alivePlayers = selectors.alivePlayers(state);
     const aliveNpcs = selectors.aliveNpcs(state);
 
+    // if we somehow end up on the analyst step but there is no analyst available,
+    // immediately advance to summary to avoid a blank screen.
+    useEffect(() => {
+        if (step === 'analyst' && analysts.length === 0) {
+            setStep('summary');
+        }
+    }, [step, analysts.length]);
+
     const addAction = (action) => {
         setNightlyActions([...nightly_actions, action]);
-        if (step === 'killer' && killers.length > 0) {
+        if (step === 'killer' && guardians.length > 0) {
+            // after killer action move to guardian if present
             setStep('guardian');
-        } else if (step === 'guardian' && guardians.length > 0) {
-            setStep('analyst');
+        } else if (step === 'guardian') {
+            // after guardian action, only go to analyst if there is one still available
+            if (analysts.length > 0) {
+                setStep('analyst');
+            } else {
+                setStep('summary');
+            }
         } else if (step === 'analyst' && analysts.length > 0) {
             setStep('summary');
         } else {
@@ -88,6 +102,17 @@ export default function MasterNightPanel() {
             <div className="p-6 max-w-2xl mx-auto">
                 <h1 className="text-2xl font-bold text-amber-400 mb-2">Notte {state.current_round}</h1>
                 <p className="text-slate-400 mb-6">Fase: {step}</p>
+
+                {state.npcs.filter(n => !n.is_alive).length > 0 && (
+                    <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+                        <p className="text-red-200 font-semibold">NPC già morti:</p>
+                        <ul className="list-disc list-inside text-red-300">
+                            {state.npcs.filter(n => !n.is_alive).map(n => (
+                                <li key={n.id}>{n.name}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 {step === 'killer' && killers.length > 0 && (
                     <div className="space-y-4">

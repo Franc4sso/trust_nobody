@@ -35,7 +35,10 @@ export function generateHint(state, npc, isThreatened) {
 export function generateAnalystBonus(state) {
     const playerNames = Object.fromEntries((state.players ?? []).map((p) => [p.id, p.name]));
     const killerIds = (state.players ?? []).filter((p) => p.role === 'serial_killer').map((p) => p.id);
-    const allVotes = state.votes ?? [];
+    let allVotes = state.votes ?? [];
+    // drop any votes where voter or target is no longer alive
+    const aliveIds = (state.players ?? []).filter(p => p.is_alive).map(p => p.id);
+    allVotes = allVotes.filter(v => aliveIds.includes(v.voter_player_id) && aliveIds.includes(v.target_player_id));
 
     const pattern = analyzeVotePatterns(state, playerNames, killerIds, allVotes);
 
@@ -51,6 +54,7 @@ export function generateAnalystBonus(state) {
 
 function analyzeVotePatterns(state, playerNames, killerIds, allVotes) {
     if (!allVotes.length) return null;
+    // allVotes provided should already be filtered for alive players/targets
 
     const patterns = [];
 

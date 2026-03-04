@@ -27,6 +27,7 @@ export default function VoteResult() {
                     },
                 });
 
+
                 // Check win condition
                 const newState = {
                     ...state,
