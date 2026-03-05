@@ -161,9 +161,6 @@ export default function MasterNightPanel() {
                             ))}
                         </div>
 
-                        <button onClick={skipPhase} className="w-full text-ui text-cream/40 text-sm py-2 hover:text-cream/60 transition">
-                            Salta
-                        </button>
                     </div>
                 )}
 
@@ -194,9 +191,6 @@ export default function MasterNightPanel() {
                             ))}
                         </div>
 
-                        <button onClick={skipPhase} className="w-full text-ui text-cream/40 text-sm py-2 hover:text-cream/60 transition">
-                            Salta
-                        </button>
                     </div>
                 )}
 

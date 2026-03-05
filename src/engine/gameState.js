@@ -75,6 +75,11 @@ function gameReducer(state, action) {
             if (action.payload.current_round !== undefined) {
                 newState.current_round = action.payload.current_round;
             }
+            // Reset runoff state when entering a new night (new round)
+            if (action.payload.phase === 'night') {
+                newState.runoff_active = false;
+                newState.runoff_player_ids = [];
+            }
             return newState;
         }
 

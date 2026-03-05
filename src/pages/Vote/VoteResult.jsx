@@ -44,7 +44,7 @@ export default function VoteResult() {
                     ),
                 };
 
-                const winner = checkWinCondition(newState);
+                const winner = checkWinCondition(newState, true);
                 if (winner) {
                     dispatch({
                         type: ACTIONS.SET_WINNER,
@@ -63,7 +63,7 @@ export default function VoteResult() {
                     });
                     navigate('/vote/medium-reveal');
                 } else {
-                    const { next, updates } = advance(newState, checkWinCondition);
+                    const { next, updates } = advance(newState, s => checkWinCondition(s, true));
                     dispatch({
                         type: ACTIONS.SET_PHASE_AND_ROUND,
                         payload: { phase: next, ...updates },

@@ -24,6 +24,7 @@ export default function RoleReveal() {
 
     const player = alivePlayers[currentPlayerIndex];
     const style = roleStyles[player?.role] || roleStyles.citizen;
+    const neutralStyle = { color: 'text-cream', glow: '', border: 'border-tobacco', btnColor: 'yellow' };
 
     const nextPlayer = () => {
         if (currentPlayerIndex < alivePlayers.length - 1) {
@@ -47,9 +48,9 @@ export default function RoleReveal() {
 
                 {player && (
                     <PulpCard variant="vintage" className="text-center space-y-6 relative stamp-confidential animate-fade-in-up">
-                        {/* Player name */}
-                        <div className={`border-2 ${style.border} rounded-lg p-5 bg-noir/50`}>
-                            <h2 className={`text-headline text-4xl ${style.color}`}>{player.name}</h2>
+                        {/* Player name — neutral colors until role is revealed */}
+                        <div className={`border-2 ${revealed ? style.border : neutralStyle.border} rounded-lg p-5 bg-noir/50`}>
+                            <h2 className={`text-headline text-4xl ${revealed ? style.color : neutralStyle.color}`}>{player.name}</h2>
                         </div>
 
                         {!revealed ? (

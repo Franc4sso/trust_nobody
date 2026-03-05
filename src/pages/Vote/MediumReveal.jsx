@@ -21,7 +21,7 @@ export default function MediumReveal() {
     const isKiller = eliminatedPlayer?.role === 'serial_killer';
 
     const continueToNight = () => {
-        const { next, updates } = advance(state, checkWinCondition);
+        const { next, updates } = advance(state, s => checkWinCondition(s, true));
 
         dispatch({
             type: ACTIONS.SET_PHASE_AND_ROUND,

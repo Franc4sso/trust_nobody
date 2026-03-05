@@ -6,9 +6,10 @@
 /**
  * Check if game has a winner.
  * @param {Object} state - game state
+ * @param {boolean} afterAssembly - true when called after vote/assembly phase
  * @returns {string|null} 'citizens' | 'killers' | null
  */
-export function checkWinCondition(state) {
+export function checkWinCondition(state, afterAssembly = false) {
     const aliveKillers = (state.players ?? []).filter(p => p.is_alive && p.role === 'serial_killer').length;
     const aliveNpcs = (state.npcs ?? []).filter(n => n.is_alive).length;
 
@@ -19,6 +20,12 @@ export function checkWinCondition(state) {
 
     // Killers win if all NPCs are dead
     if (aliveNpcs === 0) {
+        return 'killers';
+    }
+
+    // With only 1 NPC left, the guardian has no more targets to protect:
+    // killers win after the assembly if they haven't been eliminated
+    if (afterAssembly && aliveNpcs === 1) {
         return 'killers';
     }
 

@@ -8,7 +8,7 @@ export default function SuspectDossier() {
 
     // Only show rounds that have saved hints (past rounds)
     const roundsWithHints = (state.rounds ?? [])
-        .filter(r => r.hint_text && r.round_number < state.current_round)
+        .filter(r => r.hint_text && r.round_number <= state.current_round)
         .sort((a, b) => b.round_number - a.round_number);
 
     if (roundsWithHints.length === 0) return null;

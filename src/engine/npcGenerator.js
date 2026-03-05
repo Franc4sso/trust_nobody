@@ -21,23 +21,31 @@ function generateDescriptionsFromTemplates(personality, connectedPlayers) {
     }));
 }
 
-async function generateDescriptionsWithAI(archetype, connectedPlayers) {
+async function generateAllDescriptionsWithAI(archetypes, connectionMap, players) {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!apiKey || apiKey === 'inserisci_qui') return null;
 
-    const namesStr = connectedPlayers.map((p) => p.name).join(', ');
-    const prompt = `Sei ${archetype.name}, un personaggio in un gioco sociale di deduzione ambientato in un villaggio medievale.
-Il tuo ruolo è: ${archetype.personality}.
-La tua storia: ${archetype.backstory}
+    const npcBlocks = archetypes.map((archetype, i) => {
+        const connectedPlayers = [...connectionMap[i]]
+            .map(id => players.find(p => p.id === id))
+            .filter(Boolean);
+        const namesStr = connectedPlayers.map(p => p.name).join(', ');
+        return `NPC: ${archetype.name}\nProfilo: ${archetype.backstory}\nPersone da descrivere: ${namesStr}`;
+    }).join('\n\n');
 
-Devi descrivere brevemente come conosci ognuna di queste persone del villaggio: ${namesStr}.
+    const prompt = `Sei il narratore di un gioco noir ambientato negli anni '50.
+Per ogni NPC qui sotto, scrivi in prima persona come quel personaggio descrive il suo rapporto con ognuna delle persone elencate.
 
-Regole:
-- Una frase per persona, in prima persona, in italiano
-- Tono misterioso e leggermente inquietante, coerente col tuo ruolo
-- Non rivelare se qualcuno è colpevole o innocente
-- Rispondi SOLO con un oggetto JSON, senza markdown, nel formato:
-{"nome_persona": "descrizione", ...}`;
+Regole RIGIDE:
+- Ogni frase DEVE iniziare con il nome della persona (es: "Marco — lo conosco da anni. Tace troppo.")
+- Tra 8 e 15 parole per frase, in prima persona, in italiano
+- Stile telegrafico noir anni '50: asciutto, ambiguo, inquietante
+- Niente punteggiatura decorativa, niente spiegazioni
+- Non dire se sono colpevoli o innocenti
+- Rispondi SOLO con un oggetto JSON, senza markdown, con questa struttura:
+{"nome_npc": {"nome_persona": "Nome — frase.", ...}, ...}
+
+${npcBlocks}`;
 
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -50,7 +58,7 @@ Regole:
                 model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.8,
-                max_tokens: 400,
+                max_tokens: 400 * archetypes.length,
             }),
         });
 
@@ -62,13 +70,25 @@ Regole:
 
         if (typeof decoded !== 'object' || Array.isArray(decoded)) return null;
 
-        const result = [];
-        for (const player of connectedPlayers) {
-            const desc = decoded[player.name];
-            if (!desc) return null;
-            result.push({ player_id: player.id, text: desc });
+        const results = [];
+        for (let i = 0; i < archetypes.length; i++) {
+            const archetype = archetypes[i];
+            const npcData = decoded[archetype.name];
+            if (!npcData || typeof npcData !== 'object') return null;
+
+            const connectedPlayers = [...connectionMap[i]]
+                .map(id => players.find(p => p.id === id))
+                .filter(Boolean);
+
+            const descriptions = [];
+            for (const player of connectedPlayers) {
+                const desc = npcData[player.name];
+                if (!desc) return null;
+                descriptions.push({ player_id: player.id, text: desc });
+            }
+            results.push(descriptions);
         }
-        return result;
+        return results;
     } catch {
         return null;
     }
@@ -160,18 +180,18 @@ export async function generateNpcs(players, killerIds = []) {
     const count = NPC_COUNT[players.length] ?? 4;
     const archetypes = shuffle([...NPC_ARCHETYPES]).slice(0, count);
     const connectionMap = buildConnectionMap(archetypes, players, killerIds);
-    const npcs = [];
 
-    for (let i = 0; i < archetypes.length; i++) {
-        const archetype = archetypes[i];
+    const aiResults = await generateAllDescriptionsWithAI(archetypes, connectionMap, players);
+
+    return archetypes.map((archetype, i) => {
         const connectedPlayerIds = [...connectionMap[i]];
         const connectedPlayers = connectedPlayerIds.map(id => players.find(p => p.id === id)).filter(Boolean);
 
         const connectionDescriptions =
-            (await generateDescriptionsWithAI(archetype, connectedPlayers)) ??
+            aiResults?.[i] ??
             generateDescriptionsFromTemplates(archetype.personality, connectedPlayers);
 
-        npcs.push({
+        return {
             id: crypto.randomUUID(),
             name: archetype.name,
             personality: archetype.personality,
@@ -180,8 +200,6 @@ export async function generateNpcs(players, killerIds = []) {
             connection_descriptions: connectionDescriptions,
             is_alive: true,
             is_threatened: false,
-        });
-    }
-
-    return npcs;
+        };
+    });
 }

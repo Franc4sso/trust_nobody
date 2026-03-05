@@ -56,11 +56,17 @@ export default function NpcIntroductions() {
 
                         {/* Connections as "handwritten notes" */}
                         <div className="space-y-2 bg-noir/50 rounded-lg p-4 border-l-2 border-tobacco">
-                            {(npc.connection_descriptions || []).map((conn, i) => (
-                                <p key={i} className="text-quote text-cream/60 text-sm">
-                                    &ldquo;{conn.text}&rdquo;
-                                </p>
-                            ))}
+                            {(npc.connection_descriptions || []).map((conn, i) => {
+                                const playerName = state.players.find(p => p.id === conn.player_id)?.name;
+                                return (
+                                    <p key={i} className="text-quote text-cream/60 text-sm">
+                                        {playerName && !conn.text.startsWith(playerName) && (
+                                            <span className="text-taxi not-italic font-bold">{playerName} — </span>
+                                        )}
+                                        &ldquo;{conn.text}&rdquo;
+                                    </p>
+                                );
+                            })}
                         </div>
 
                         <NeonButton color="yellow" onClick={nextNpc}>
