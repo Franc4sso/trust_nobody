@@ -53,7 +53,7 @@ export const NPC_ARCHETYPES = [
 
 // NPC count: ~75% of player count, min 3, max 7
 export const NPC_COUNT = {
-    4: 3, 5: 3, 6: 4, 7: 5, 8: 6, 9: 6, 10: 7,
+    4: 3, 5: 3, 6: 4, 7: 4, 8: 4, 9: 5, 10: 5,
 };
 
 export const CONNECTION_TEMPLATES = {
