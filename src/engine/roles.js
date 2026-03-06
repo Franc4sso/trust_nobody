@@ -60,29 +60,35 @@ export function getDistribution(count) {
  * Assign roles to players.
  * @param {Array} players - array of player objects (with id, sort_order)
  * @param {Array} [enabledRoles] - optional list of enabled role keys (serial_killer and citizen always included)
+ * @param {number} [killerCount] - override number of serial killers (defaults to distribution)
  * @returns {Array} players with role assigned
  */
-export function assignRoles(players, enabledRoles) {
+export function assignRoles(players, enabledRoles, killerCount) {
     const count = players.length;
     const dist = getDistribution(count);
+
+    // Override killer count if provided
+    if (killerCount != null) {
+        dist.serial_killer = killerCount;
+    }
 
     // If enabledRoles provided, disabled roles become citizens
     const enabled = enabledRoles
         ? new Set([...enabledRoles, 'serial_killer', 'citizen'])
         : new Set(Object.keys(dist));
 
-    let extraCitizens = 0;
     let roles = [];
 
     for (const [role, num] of Object.entries(dist)) {
+        if (role === 'citizen') continue;
         if (enabled.has(role)) {
             roles = roles.concat(Array(num).fill(role));
-        } else {
-            extraCitizens += num;
         }
     }
 
-    roles = roles.concat(Array(extraCitizens).fill('citizen'));
+    // Fill remaining slots with citizens
+    const citizenCount = Math.max(0, count - roles.length);
+    roles = roles.concat(Array(citizenCount).fill('citizen'));
     roles = shuffle(roles);
 
     const sorted = [...players].sort((a, b) => a.sort_order - b.sort_order);

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/engine/gameState';
 import { assignRoles, getDistribution, OPTIONAL_ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS } from '@/engine/roles';
 import { generateNpcs } from '@/engine/npcGenerator';
-import { Skull, Shield, Eye, Scan, Brain, User, Plus, X, Check, Loader2 } from 'lucide-react';
+import { Skull, Shield, Eye, Scan, Brain, User, Plus, Minus, X, Check, Loader2 } from 'lucide-react';
 import PageShell from '@/components/PageShell';
 import Headline from '@/components/Headline';
 import PulpCard from '@/components/PulpCard';
@@ -24,6 +24,7 @@ export default function PlayerNames() {
     const [step, setStep] = useState('names');
     const [names, setNames] = useState(['', '', '', '', '', '']);
     const [enabledRoles, setEnabledRoles] = useState(new Set(OPTIONAL_ROLES));
+    const [killerCount, setKillerCount] = useState(null); // null = use default
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -33,6 +34,11 @@ export default function PlayerNames() {
         () => getDistribution(validNames.length),
         [validNames.length]
     );
+
+    const defaultKillers = distribution.serial_killer;
+    const activeKillers = killerCount ?? defaultKillers;
+    const maxKillers = Math.max(1, Math.floor(validNames.length / 2));
+    const minKillers = 1;
 
     const updateName = (index, value) => {
         const updated = [...names];
@@ -88,7 +94,7 @@ export default function PlayerNames() {
                 role_description: null,
             }));
 
-            const playersWithRoles = assignRoles(players, [...enabledRoles]);
+            const playersWithRoles = assignRoles(players, [...enabledRoles], activeKillers);
             const killerIds = playersWithRoles.filter(p => p.role === 'serial_killer').map(p => p.id);
             const npcs = await generateNpcs(playersWithRoles, killerIds);
 
@@ -229,17 +235,35 @@ export default function PlayerNames() {
                             SCEGLI I RUOLI
                         </Headline>
 
-                        {/* Serial Killer - always present */}
-                        <PulpCard variant="vintage" className="p-4 mb-4">
+                        {/* Serial Killer - always present, count adjustable */}
+                        <PulpCard variant="vintage" className="p-4 mb-4 border border-blood/30 bg-blood/8">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-lg bg-blood/10 flex items-center justify-center flex-shrink-0">
                                     <Skull size={18} color="#d4364b" strokeWidth={1.5} />
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-headline text-blood text-lg">Serial Killer</p>
-                                    <p className="text-ui text-cream/40 text-xs mt-0.5">x{distribution.serial_killer}</p>
+                                    <p className="text-ui text-cream/40 text-xs mt-0.5">
+                                        {ROLE_DESCRIPTIONS.serial_killer}
+                                    </p>
                                 </div>
-                                <span className="text-cream/25 text-xs italic">sempre attivo</span>
+                                <div className="flex items-center gap-2 ml-2 shrink-0">
+                                    <button
+                                        onClick={() => setKillerCount(Math.max(minKillers, activeKillers - 1))}
+                                        disabled={activeKillers <= minKillers}
+                                        className="w-7 h-7 rounded-md border border-blood/40 bg-blood/10 flex items-center justify-center text-blood hover:bg-blood/20 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                    <span className="text-headline text-blood text-lg w-6 text-center">{activeKillers}</span>
+                                    <button
+                                        onClick={() => setKillerCount(Math.min(maxKillers, activeKillers + 1))}
+                                        disabled={activeKillers >= maxKillers}
+                                        className="w-7 h-7 rounded-md border border-blood/40 bg-blood/10 flex items-center justify-center text-blood hover:bg-blood/20 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
                             </div>
                         </PulpCard>
 
