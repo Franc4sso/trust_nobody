@@ -8,7 +8,7 @@ import Home from '@/pages/Home';
 import PlayerNames from '@/pages/Setup/PlayerNames';
 import RoleReveal from '@/pages/Setup/RoleReveal';
 import NpcIntroductions from '@/pages/N1/NpcIntroductions';
-import FirstVote from '@/pages/N1/FirstVote';
+
 import MasterNightPanel from '@/pages/Night/MasterNightPanel';
 import NpcHint from '@/pages/Morning/NpcHint';
 import Discussion from '@/pages/Day/Discussion';
@@ -59,15 +59,6 @@ function AnimatedRoutes() {
                         </RequireGame>
                     }
                 />
-                <Route
-                    path="/n1/vote"
-                    element={
-                        <RequireGame>
-                            <FirstVote />
-                        </RequireGame>
-                    }
-                />
-
                 <Route
                     path="/night"
                     element={

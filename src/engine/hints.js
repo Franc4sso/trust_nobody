@@ -8,8 +8,9 @@
 //   mid   (3-4)  → osservazione, cerchio si stringe
 //   late  (5+)   → quasi certo, pochi nomi, diretto
 //
-// Il meccanismo "bridge" permette a qualsiasi NPC di prendere nomi reali
-// dalle connessioni di un altro NPC e presentarli come info sentite.
+// REGOLA FONDAMENTALE: un NPC puo' menzionare giocatori fuori dalle
+// proprie connessioni SOLO se cita esplicitamente il bridge NPC
+// (es. "Ho parlato con Elara..."). Senza bridge, solo proprie connessioni.
 // ─────────────────────────────────────────────────────────────────────
 
 // ── utility ──────────────────────────────────────────────────────────
@@ -27,11 +28,10 @@ function pick(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function weightedPick(generic, withNames) {
+function weightedPick(generic, withNames, genericWeight = 0.3) {
     if (!withNames.length) return pick(generic);
     if (!generic.length) return pick(withNames);
-    // 30% generic, 70% with names
-    return Math.random() < 0.3 ? pick(generic) : pick(withNames);
+    return Math.random() < genericWeight ? pick(generic) : pick(withNames);
 }
 
 function buildBridge(state, npc, playerNames, excludeIds) {
@@ -53,6 +53,7 @@ function buildBridge(state, npc, playerNames, excludeIds) {
     return { bridgeNpc, borrowedNames };
 }
 
+// Merge own + borrowed names (used ONLY in bridge templates)
 function expandNames(ownNames, borrowed, max) {
     const merged = [...ownNames];
     for (const n of borrowed) {
@@ -70,6 +71,7 @@ export function generateHint(state, npc, isThreatened) {
     const alivePlayerIds = players.filter(p => p.is_alive).map(p => p.id);
     const playerNames = Object.fromEntries(players.map(p => [p.id, p.name]));
 
+    // SOLO connessioni proprie, filtrate per giocatori vivi
     const connections = (npc.connections ?? []).filter(id => alivePlayerIds.includes(id));
     const connNames = connections.map(id => playerNames[id] ?? 'Sconosciuto');
     const killerIds = players.filter(p => p.role === 'serial_killer').map(p => p.id);
@@ -78,16 +80,13 @@ export function generateHint(state, npc, isThreatened) {
 
     const knowsKiller = connKillerIds.length > 0;
 
-    // NPC minacciato: stessi template, ma il contenuto informativo cambia.
-    // Se conosce il killer → depista, trattato come innocente (punta altrove).
-    // Se non conosce il killer → accusa innocenti con stesse frasi da "killer-aware"
-    //   (cosi' il giocatore non distingue un NPC minacciato da uno normale).
+    // NPC minacciato
     if (isThreatened) {
         if (knowsKiller) {
-            return innocentHint(state, npc, connNames, round);
+            return innocentHint(state, npc, connNames, playerNames, round);
         }
         if (connInnocentIds.length === 0) {
-            return innocentHint(state, npc, connNames, round);
+            return innocentHint(state, npc, connNames, playerNames, round);
         }
         const shuffledInnocents = shuffle([...connInnocentIds]);
         const fakeKillerIds = [shuffledInnocents[0]];
@@ -96,13 +95,10 @@ export function generateHint(state, npc, isThreatened) {
     }
 
     // NPC inaffidabile (non minacciato): 40% di probabilita' di mentire.
-    // Stessa logica del minacciato: inverte le informazioni.
     if (npc.unreliable && Math.random() < 0.4) {
         if (knowsKiller) {
-            // Sa chi e' il killer ma mente → copre il killer
-            return innocentHint(state, npc, connNames, round);
+            return innocentHint(state, npc, connNames, playerNames, round);
         }
-        // Non conosce il killer ma mente → accusa innocenti
         if (connInnocentIds.length > 0) {
             const shuffledInnocents = shuffle([...connInnocentIds]);
             const fakeKillerIds = [shuffledInnocents[0]];
@@ -112,7 +108,7 @@ export function generateHint(state, npc, isThreatened) {
     }
 
     if (!knowsKiller) {
-        return innocentHint(state, npc, connNames, round);
+        return innocentHint(state, npc, connNames, playerNames, round);
     }
 
     return killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playerNames, round);
@@ -120,21 +116,20 @@ export function generateHint(state, npc, isThreatened) {
 
 // ── innocent NPC (no killer in connections) ──────────────────────────
 
-function innocentHint(state, npc, connNames, round) {
-    const playerNames = Object.fromEntries(
-        (state.players ?? []).map(p => [p.id, p.name])
-    );
+function innocentHint(state, npc, connNames, playerNames, round) {
     const ownIds = new Set(
         (npc.connections ?? []).filter(id =>
             (state.players ?? []).find(p => p.id === id && p.is_alive))
     );
     const bridge = buildBridge(state, npc, playerNames, ownIds);
 
+    // Propri nomi (senza borrowed)
     const nameList = shuffle([...connNames]).join(', ');
-    const expanded = bridge
+    // Expanded: propri + borrowed (SOLO per template bridge)
+    const expanded = bridge && bridge.borrowedNames.length > 0
         ? expandNames(connNames, bridge.borrowedNames, 5)
-        : shuffle([...connNames]);
-    const expandedList = expanded.join(', ');
+        : null;
+    const expandedList = expanded ? expanded.join(', ') : null;
     const bN = bridge?.bridgeNpc?.name;
     const hasBorrowed = bridge && bridge.borrowedNames.length > 0;
 
@@ -147,7 +142,6 @@ function innocentHint(state, npc, connNames, round) {
         "Non ho notato nulla di sospetto tra chi conosco. Ma qualcosa nell'aria e' cambiato.",
         "Le persone che frequento mi sembrano a posto. Il pericolo viene da altrove.",
         "Cercate tra chi non conosco. Il pericolo non viene dalla mia cerchia.",
-        // infiltrato mid (a volte un NPC innocente sembra gia' sicuro al round 1)
         "Ho osservato chi potevo. Niente di strano, ma non abbassate la guardia.",
     ];
     if (connNames.length > 0) {
@@ -156,6 +150,7 @@ function innocentHint(state, npc, connNames, round) {
             `Ho osservato ${nameList} attentamente. Non mi sembrano pericolosi.`,
         );
     }
+    // Bridge templates: citano esplicitamente l'NPC ponte
     if (hasBorrowed) {
         early.push(
             `Ho parlato con ${bN}. Tra i suoi e i miei conoscenti — ${expandedList} — nessuno mi sembra sospetto. Ma qualcuno qui mente.`,
@@ -174,7 +169,6 @@ function innocentHint(state, npc, connNames, round) {
         "Le votazioni mi hanno fatto pensare. Qualcuno tra voi sta giocando sporco.",
         "Il killer e' qualcuno che si nasconde bene. E non tra le persone che frequento io.",
         "Potrei sbagliarmi, ma credo che il colpevole sia qualcuno che nessuno sospetta.",
-        // infiltrato early (a volte un NPC torna vago)
         "C'e' tensione nell'aria. Non so da dove venga, ma la sento.",
         "La notte scorsa ho sentito di nuovo dei rumori. Non mi sento al sicuro.",
     ];
@@ -195,12 +189,11 @@ function innocentHint(state, npc, connNames, round) {
         );
     }
 
-    // ── round 5+: sicurezza, ma a volte ancora dubbio ──
+    // ── round 5+: sicurezza ──
     const late = [
         "Ormai ho osservato abbastanza. Il killer non e' tra le persone che frequento. Ne sono certo.",
         "Dopo tanti giri posso dirvi: cercate altrove. Chi conosco io non c'entra nulla.",
         "Sono sicuro di una cosa: il colpevole non e' tra i miei conoscenti. Guardate gli altri.",
-        // infiltrati mid/early (anche a round 5 un NPC puo' sembrare insicuro)
         "Potrei sbagliarmi, ma credo che il colpevole sia qualcuno che nessuno sospetta.",
         "Ho le mie ragioni per stare all'erta. Ma tra chi conosco non ho trovato nulla.",
     ];
@@ -228,55 +221,34 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
     const ownIds = new Set([...connKillerIds, ...connInnocentIds]);
     const bridge = buildBridge(state, npc, playerNames, ownIds);
 
-    // Quanti giocatori vivi ci sono? Piu' siamo vicini all'endgame, piu' nomi
-    // servono nel focused per non regalare la partita ai cittadini.
-    // (Se killer == cittadini dopo l'assemblea, vincono i killer.)
-    const alivePlayers = (state.players ?? []).filter(p => p.is_alive);
-    const aliveCount = alivePlayers.length;
+    // Pool di nomi extra SOLO dalle proprie connessioni
+    const ownExtraPool = shuffle([...innocentNames]);
 
-    // Pool di nomi extra da connessioni (own innocents + borrowed)
-    const extraPool = [...shuffle([...innocentNames])];
-    if (bridge?.borrowedNames) {
-        for (const n of bridge.borrowedNames) {
-            if (!extraPool.includes(n)) extraPool.push(n);
-        }
-    }
-
-    // expanded: killer nascosto nella folla, 4-6 nomi
-    const expandedBase = bridge
+    // expanded CON bridge (SOLO per template bridge)
+    const expandedWithBridge = bridge && bridge.borrowedNames.length > 0
         ? expandNames(connNames, bridge.borrowedNames, 6)
-        : shuffle([...connNames]);
-    // Assicura almeno 4 nomi
-    if (expandedBase.length < 4) {
-        for (const n of extraPool) {
-            if (expandedBase.length >= 4) break;
-            if (!expandedBase.includes(n)) expandedBase.push(n);
-        }
-    }
-    const expanded = shuffle(expandedBase);
+        : null;
+    const expandedWithBridgeList = expandedWithBridge ? expandedWithBridge.join(', ') : null;
 
-    // narrow: killer + innocenti + borrowed, minimo 4 nomi
-    const narrowBase = [killerNames[0], ...shuffle([...innocentNames]).slice(0, 3)];
-    if (narrowBase.length < 4 && bridge?.borrowedNames) {
-        for (const n of bridge.borrowedNames) {
-            if (narrowBase.length >= 4) break;
-            if (!narrowBase.includes(n)) narrowBase.push(n);
-        }
-    }
-    const narrow = shuffle(narrowBase);
-
-    // focused: killer + extra, minimo 4 nomi sempre
-    const minExtra = aliveCount <= 5 ? 4 : 3;
-    const focusedExtra = extraPool.slice(0, minExtra);
-    const focused = shuffle([killerNames[0], ...focusedExtra]);
-
+    // expanded SENZA bridge (solo proprie connessioni)
+    const expanded = shuffle([...connNames]);
     const expandedList = expanded.join(', ');
+
+    // narrow: killer + fino a 3 innocenti dalle PROPRIE connessioni (usato mid)
+    const narrowExtra = Math.min(innocentNames.length, 3);
+    const narrow = shuffle([killerNames[0], ...shuffle([...innocentNames]).slice(0, narrowExtra)]);
     const narrowList = narrow.join(', ');
+
+    // focused: killer + 1-2 innocenti (usato late)
+    const focusedExtra = Math.min(innocentNames.length, 2);
+    const focused = shuffle([killerNames[0], ...shuffle([...innocentNames]).slice(0, focusedExtra)]);
     const focusedList = focused.join(focused.length === 2 ? ' o ' : ', ');
+
     const bN = bridge?.bridgeNpc?.name;
     const hasBorrowed = bridge && bridge.borrowedNames.length > 0;
 
     // ── round 1-2: massima confusione, molti nomi, tono incerto ──
+    // IMPORTANTE: nei primi turni, SEMPRE citare tutti i nomi possibili per non restringere il campo
     const earlyGeneric = [
         "Qualcosa non va in questo posto. Ho visto cose di notte che non dovrei aver visto.",
         "C'e' qualcuno qui che non e' quello che sembra. Ma non posso dire di piu', non ancora.",
@@ -287,19 +259,25 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
         "Le apparenze ingannano. Ho visto poco ma abbastanza per capire che qui nessuno e' al sicuro.",
         "So poco, ma so che qualcuno tra voi ha qualcosa da nascondere.",
     ];
-    const earlyNamed = [
+    const earlyNamed = [];
+    // Nei round 1-2 usiamo SEMPRE expanded (tutti i nomi), mai narrow
+    if (hasBorrowed) {
+        // Con bridge: tanti nomi, massima confusione
+        earlyNamed.push(
+            `Ho parlato con ${bN}. Tra i suoi conoscenti e i miei — ${expandedWithBridgeList} — c'e' qualcuno che nasconde qualcosa.`,
+            `${bN} mi ha raccontato delle sue frequentazioni. Tra ${expandedWithBridgeList}, qualcuno non e' chi dice di essere.`,
+            `Io e ${bN} conosciamo parecchia gente: ${expandedWithBridgeList}. Uno di loro mi mette a disagio.`,
+            `Ho incrociato le voci con ${bN}. Tra ${expandedWithBridgeList}, qualcosa non torna. Ma e' presto per dire chi.`,
+        );
+    }
+    // Sempre includere anche template con tutti i propri nomi
+    earlyNamed.push(
         `Ho visto ${expandedList} aggirarsi la scorsa notte. Uno di loro nasconde qualcosa.`,
         `Tra le persone che conosco — ${expandedList} — qualcuno non e' chi dice di essere.`,
         `Conosco ${expandedList}. Uno di loro mi mette a disagio, ma non saprei dire chi.`,
         `${expandedList}... li osservo da un po'. C'e' qualcosa che non quadra in uno di loro.`,
-    ];
-    if (hasBorrowed) {
-        earlyNamed.push(
-            `Ho parlato con ${bN}. Tra i suoi conoscenti e i miei — ${expandedList} — c'e' qualcuno che nasconde qualcosa.`,
-            `${bN} mi ha raccontato delle sue frequentazioni. Tra ${expandedList}, qualcuno non e' chi dice di essere.`,
-            `Io e ${bN} conosciamo parecchia gente: ${expandedList}. Uno di loro mi mette a disagio.`,
-        );
-    } else if (bN) {
+    );
+    if (!hasBorrowed && bN) {
         earlyGeneric.push(
             `Ho scambiato due parole con ${bN}. Mettete insieme le nostre storie, qualcosa non torna.`,
             `Se volete capirci qualcosa, parlate anche con ${bN}. Tra noi due conosciamo abbastanza gente.`,
@@ -324,7 +302,7 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
     ];
     if (hasBorrowed) {
         midNamed.push(
-            `Ho incrociato le mie informazioni con quelle di ${bN}. Tra ${expandedList} c'e' qualcuno di pericoloso.`,
+            `Ho incrociato le mie informazioni con quelle di ${bN}. Tra ${expandedWithBridgeList} c'e' qualcuno di pericoloso.`,
         );
         midGeneric.push(
             `${bN} sa piu' di quanto dice. Incrociate le sue parole con le mie.`,
@@ -335,7 +313,7 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
         );
     }
 
-    // ── round 5+: piu' vicino alla verita', ma mai certezza assoluta ──
+    // ── round 5+: piu' vicino alla verita' ──
     const lateGeneric = [
         "Il cerchio si stringe. Ho un sospetto forte ma non voglio accusare la persona sbagliata.",
         "Non escludete nessuno. Il killer potrebbe essere l'ultimo che sospettate.",
@@ -352,14 +330,14 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
     ];
     if (hasBorrowed) {
         lateNamed.push(
-            `Ho messo insieme tutto con ${bN}. Tra ${focusedList}, qualcosa non torna. Ma non mi sbilancio.`,
+            `Ho messo insieme tutto con ${bN}. Tra ${expandedWithBridgeList}, qualcosa non torna. Ma non mi sbilancio.`,
         );
     }
 
-    // Round early: pick uniforme (confusione voluta)
+    // Round early: 50% generiche (senza nomi), 50% con nomi (ma TUTTI i nomi, non narrow)
     // Round mid/late: 70% frasi con nomi, 30% generiche
     if (round <= 2) {
-        return pick([...earlyGeneric, ...earlyNamed]);
+        return weightedPick(earlyGeneric, earlyNamed, 0.5);
     }
     if (round <= 4) {
         return weightedPick(midGeneric, midNamed);
@@ -368,207 +346,3 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
 }
 
 
-// ── analyst bonus ────────────────────────────────────────────────────
-//
-// L'analista riceve indizi progressivamente piu' forti:
-//   round 1-2 (early): sensazioni generiche sui voti, atmosfera
-//   round 3-4 (mid):   pattern di voto concreti, segnali su minacce NPC
-//   round 5+  (late):  analisi incrociate voti + minacce, gruppi sospetti
-//
-// MAI puntare a un singolo sospetto. Sempre almeno 2-3 nomi o gruppi.
-// ─────────────────────────────────────────────────────────────────────
-
-export function generateAnalystBonus(state) {
-    const round = state.current_round;
-    const playerNames = Object.fromEntries(
-        (state.players ?? []).map(p => [p.id, p.name])
-    );
-    const killerIds = (state.players ?? [])
-        .filter(p => p.role === 'serial_killer')
-        .map(p => p.id);
-    const alive = (state.players ?? []).filter(p => p.is_alive);
-    const aliveIds = alive.map(p => p.id);
-    const allVotes = (state.votes ?? []).filter(
-        v => aliveIds.includes(v.voter_player_id) && aliveIds.includes(v.target_player_id)
-    );
-    const rounds = state.rounds ?? [];
-
-    // Raccolta hint per tier
-    const early = [];
-    const mid = [];
-    const late = [];
-
-    // ── ANALISI VOTI ──────────────────────────────────────────────────
-
-    const votesByRound = {};
-    for (const v of allVotes) {
-        (votesByRound[v.round_number] ??= []).push(v);
-    }
-
-    // Mai bersagliati
-    const allTargeted = {};
-    for (const v of allVotes) {
-        allTargeted[v.target_player_id] = (allTargeted[v.target_player_id] ?? 0) + 1;
-    }
-    const neverTargeted = alive.filter(p => !allTargeted[p.id]);
-    if (neverTargeted.length >= 2 && neverTargeted.length <= 4) {
-        const names = neverTargeted.map(p => p.name).join(', ');
-        early.push(`Strano: ${names} non hanno mai ricevuto nemmeno un voto. Nessuno li sospetta... o nessuno osa accusarli?`);
-        mid.push(`${names} continuano a non ricevere voti. E' sospetto che nessuno li abbia mai puntati.`);
-    }
-
-    // Cambio bersaglio ogni round
-    const voterTargets = {};
-    for (const v of allVotes) {
-        (voterTargets[v.voter_player_id] ??= []).push(v.target_player_id);
-    }
-    const flipFloppers = [];
-    for (const [voterId, targets] of Object.entries(voterTargets)) {
-        if (targets.length >= 2 && new Set(targets).size === targets.length) {
-            flipFloppers.push(playerNames[voterId] ?? '?');
-        }
-    }
-    if (flipFloppers.length >= 2) {
-        early.push(`${flipFloppers.join(' e ')} cambiano bersaglio ad ogni votazione. Comportamento nervoso o strategico?`);
-        mid.push(`${flipFloppers.join(' e ')} non votano mai la stessa persona due volte. Stanno cercando di confondere le acque?`);
-    } else if (flipFloppers.length === 1) {
-        // Non puntare a uno solo: aggiungere un altro nome
-        const other = alive.find(p => p.name !== flipFloppers[0]);
-        if (other) {
-            early.push(`Alcuni giocatori come ${flipFloppers[0]} e ${other.name} mostrano pattern di voto irregolari. Tenete d'occhio chi cambia idea troppo spesso.`);
-        }
-    }
-
-    // Chi ha votato insieme contro lo stesso bersaglio (killer + innocente)
-    for (const roundVotes of Object.values(votesByRound)) {
-        const byTarget = {};
-        for (const v of roundVotes) {
-            (byTarget[v.target_player_id] ??= []).push(v.voter_player_id);
-        }
-        for (const [targetId, voterIds] of Object.entries(byTarget)) {
-            if (voterIds.length < 2) continue;
-            const hasKiller = voterIds.some(id => killerIds.includes(id));
-            const hasInnocent = voterIds.some(id => !killerIds.includes(id));
-            if (hasKiller && hasInnocent) {
-                const names = voterIds.slice(0, 3).map(id => playerNames[id] ?? '?').join(' e ');
-                const target = playerNames[targetId] ?? '?';
-                mid.push(`${names} hanno votato insieme contro ${target}. Coincidenza o strategia?`);
-                late.push(`C'e' un gruppo che vota in blocco: ${names}. Almeno uno di loro sta manipolando gli altri.`);
-            }
-        }
-    }
-
-    // Chi ha votato per eliminare un innocente
-    for (const r of rounds) {
-        if (!r.eliminated_player_id) continue;
-        const eliminated = (state.players ?? []).find(p => p.id === r.eliminated_player_id);
-        if (!eliminated || eliminated.role === 'serial_killer') continue;
-        const pushers = allVotes
-            .filter(v => v.round_number === r.round_number && !v.is_runoff && v.target_player_id === eliminated.id)
-            .map(v => playerNames[v.voter_player_id] ?? '?');
-        if (pushers.length >= 2) {
-            mid.push(`${pushers.slice(0, 3).join(', ')} hanno spinto per eliminare ${eliminated.name}, che era innocente. Chi tra loro aveva interesse?`);
-            late.push(`Ripensando all'eliminazione di ${eliminated.name}: ${pushers.slice(0, 3).join(', ')} l'hanno voluta fortemente. Almeno uno di loro sapeva cosa faceva.`);
-        }
-    }
-
-    // Chi non ha mai votato un killer (e c'e' stato almeno 1 voto contro un killer)
-    const killerVoters = new Set();
-    for (const v of allVotes) {
-        if (killerIds.includes(v.target_player_id)) {
-            killerVoters.add(v.voter_player_id);
-        }
-    }
-    if (killerVoters.size > 0) {
-        const neverVotedKiller = alive.filter(p =>
-            !killerIds.includes(p.id) && !killerVoters.has(p.id)
-        );
-        if (neverVotedKiller.length >= 2 && neverVotedKiller.length <= 4) {
-            const names = neverVotedKiller.map(p => p.name).join(', ');
-            late.push(`${names} non hanno mai votato contro chi si e' rivelato sospetto. Proteggono qualcuno o sono solo distratti?`);
-        }
-    }
-
-    // ── ANALISI MINACCE NPC ───────────────────────────────────────────
-
-    const threatenedRounds = rounds.filter(r => r.killer_action === 'threaten');
-    const threatenedNpcIds = threatenedRounds.map(r => r.killer_target_npc_id);
-    const threatenedNpcs = (state.npcs ?? []).filter(n => threatenedNpcIds.includes(n.id));
-    const totalThreats = threatenedRounds.length;
-    const killRounds = rounds.filter(r => r.killer_action === 'kill');
-
-    if (totalThreats > 0) {
-        // Early: sensazione vaga
-        early.push(
-            "Ho la sensazione che non tutti gli NPC stiano dicendo la verita'. Qualcuno potrebbe essere sotto pressione.",
-            "Alcuni indizi degli NPC mi sembrano contraddittori. Come se qualcuno parlasse contro la propria volonta'.",
-        );
-
-        // Mid: piu' concreto, pattern minacce vs uccisioni
-        if (totalThreats >= 2) {
-            mid.push(
-                `Il killer ha scelto di minacciare spesso invece di uccidere. Sta manipolando le informazioni che ricevete dagli NPC.`,
-                `Ho contato: ${totalThreats} notti su ${rounds.length} con minacce invece di omicidi. Il killer preferisce il depistaggio alla violenza. Non fidatevi ciecamente degli indizi.`,
-            );
-        } else {
-            mid.push(
-                `C'e' stata almeno una notte in cui il killer ha scelto di non uccidere. Questo significa che almeno un indizio potrebbe essere stato manipolato.`,
-                `Non tutte le notti il killer uccide. A volte preferisce controllare cosa dicono gli NPC. Riflettete su quali indizi vi hanno portato fuori strada.`,
-            );
-        }
-
-        // Late: incrocio minacce + voti
-        if (threatenedNpcs.length > 0) {
-            const hintRounds = threatenedRounds.map(r => r.round_number);
-            const suspiciousVoters = [];
-            for (const hintRound of hintRounds) {
-                const nextRoundVotes = allVotes.filter(v => v.round_number === hintRound);
-                for (const v of nextRoundVotes) {
-                    if (killerIds.includes(v.voter_player_id)) {
-                        suspiciousVoters.push(v.voter_player_id);
-                    }
-                }
-            }
-            // Non rivelare chi, ma indicare il pattern
-            late.push(
-                `Ho incrociato le notti di minaccia con i voti del giorno dopo. Qualcuno sembra votare in modo piu' sicuro dopo le notti in cui il killer non ha ucciso. Come se sapesse gia' l'esito.`,
-                `Dopo le notti senza omicidi, certi giocatori votano con piu' convinzione. Coincidenza? Il killer potrebbe usare le minacce per guidare le votazioni.`,
-            );
-        }
-
-        // Late: pattern specifico su notti alterne
-        if (totalThreats >= 2 && killRounds.length >= 1) {
-            late.push(
-                `Il killer alterna uccisioni e minacce. Nei turni dopo le minacce, gli indizi degli NPC puntano in direzioni strane. Confrontate gli indizi tra notti diverse: quelli che contraddicono gli altri potrebbero essere stati dati sotto costrizione.`,
-            );
-        }
-    } else if (rounds.length >= 2) {
-        // Nessuna minaccia rilevata
-        mid.push(
-            "Finora non ho motivo di credere che gli NPC siano stati manipolati. Gli indizi che avete ricevuto sembrano genuini.",
-        );
-        late.push(
-            "Dopo tanti giri, gli NPC sembrano tutti parlare liberamente. Il killer preferisce uccidere piuttosto che manipolare. Fidatevi degli indizi.",
-        );
-    }
-
-    // ── SELEZIONE PER ROUND ───────────────────────────────────────────
-
-    const fallback = [
-        "Le votazioni finora non rivelano schemi chiari. Qualcuno e' molto bravo a nascondersi nel voto.",
-        "Ho analizzato ogni voto espresso... c'e' qualcuno che vota in modo strategico, ma non riesco ancora a capire chi.",
-        "I pattern di voto sono confusi. Forse e' proprio questo il piano del killer: creare caos nelle assemblee.",
-    ];
-
-    if (round <= 2) {
-        return early.length > 0 ? pick(early) : pick(fallback);
-    }
-    if (round <= 4) {
-        // Mid: preferisci mid, fallback su early
-        const pool = mid.length > 0 ? mid : early.length > 0 ? early : fallback;
-        return pick(pool);
-    }
-    // Late: preferisci late, fallback su mid
-    const pool = late.length > 0 ? late : mid.length > 0 ? mid : fallback;
-    return pick(pool);
-}

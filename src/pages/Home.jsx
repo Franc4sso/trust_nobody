@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/engine/gameState';
-import { Skull, Users, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { getRouteForPhase } from '@/engine/phaseRoutes';
+import { Skull, Users, Shield, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import PageShell from '@/components/PageShell';
 import NeonButton from '@/components/NeonButton';
 
@@ -71,8 +72,13 @@ export default function Home() {
 
     const continueGame = () => {
         if (state.id) {
-            navigate(`/setup/names`);
+            const route = getRouteForPhase(state.current_phase);
+            navigate(route);
         }
+    };
+
+    const resetGame = () => {
+        dispatch({ type: ACTIONS.RESET });
     };
 
     return (
@@ -115,9 +121,18 @@ export default function Home() {
                     </button>
 
                     {state.id && (
-                        <NeonButton color="blue" onClick={continueGame}>
-                            Continua Partita
-                        </NeonButton>
+                        <>
+                            <NeonButton color="blue" onClick={continueGame}>
+                                Continua Partita
+                            </NeonButton>
+                            <button
+                                onClick={resetGame}
+                                className="w-full flex items-center justify-center gap-2 text-cream/40 text-sm hover:text-blood transition-colors py-2 mt-2"
+                            >
+                                <RotateCcw size={14} />
+                                <span className="text-ui tracking-wider">RESET</span>
+                            </button>
+                        </>
                     )}
                 </motion.div>
 

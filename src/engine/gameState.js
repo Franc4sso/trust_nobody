@@ -46,6 +46,7 @@ const ACTIONS = {
 function gameReducer(state, action) {
     switch (action.type) {
         case ACTIONS.INIT_GAME:
+            localStorage.removeItem(STORAGE_KEY);
             return {
                 ...initialState,
                 id: crypto.randomUUID(),
@@ -174,6 +175,7 @@ function gameReducer(state, action) {
             };
 
         case ACTIONS.RESET:
+            localStorage.removeItem(STORAGE_KEY);
             return initialState;
 
         case ACTIONS.LOAD_FROM_STORAGE:

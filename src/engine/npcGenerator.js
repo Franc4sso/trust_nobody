@@ -96,13 +96,13 @@ ${npcBlocks}`;
 
 // Connection count ranges scaled by player count
 const CONNECTION_RANGE = {
-    4:  [1, 2],
-    5:  [1, 2],
+    4:  [2, 3],
+    5:  [2, 3],
     6:  [2, 3],
-    7:  [2, 3],
-    8:  [2, 3],
-    9:  [2, 3],
-    10: [2, 4],
+    7:  [2, 4],
+    8:  [3, 4],
+    9:  [3, 4],
+    10: [3, 4],
 };
 
 /**

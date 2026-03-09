@@ -1,5 +1,3 @@
-import { generateAnalystBonus } from './hints';
-
 /**
  * NightResolutionService translated from PHP.
  * Resolves night actions (killer + guardian + analyst).
@@ -47,22 +45,31 @@ export function resolveNight(state, nightActions) {
     if (killerAction && killerAction.action_type === 'threaten') {
         roundUpdate.hint_npc_id = killerAction.target_npc_id;
     } else {
-        const hintNpc = selectHintNpc(state);
+        // Exclude the NPC just killed this round (npcUpdates not yet applied to state)
+        const killedNpcId = killerAction?.action_type === 'kill' && !roundUpdate.kill_blocked
+            ? killerAction.target_npc_id
+            : null;
+        const hintNpc = selectHintNpc(state, killedNpcId);
         if (hintNpc) {
             roundUpdate.hint_npc_id = hintNpc.id;
         }
     }
 
-    // Analyst bonus: generate hint and store in round for morning display
-    if (analystAction) {
-        roundUpdate.analyst_bonus_hint = generateAnalystBonus(state);
+    // Analyst investigation: check if target NPC is threatened
+    if (analystAction && analystAction.target_npc_id) {
+        const targetNpc = (state.npcs ?? []).find(n => n.id === analystAction.target_npc_id);
+        if (targetNpc) {
+            roundUpdate.analyst_target_npc_id = targetNpc.id;
+            roundUpdate.analyst_target_npc_name = targetNpc.name;
+            roundUpdate.analyst_npc_threatened = !!targetNpc.is_threatened;
+        }
     }
 
     return { roundUpdate, npcUpdates };
 }
 
-function selectHintNpc(state) {
-    const aliveNpcs = (state.npcs ?? []).filter(n => n.is_alive);
+function selectHintNpc(state, excludeNpcId = null) {
+    const aliveNpcs = (state.npcs ?? []).filter(n => n.is_alive && n.id !== excludeNpcId);
     if (aliveNpcs.length === 0) {
         return null;
     }

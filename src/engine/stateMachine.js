@@ -7,7 +7,7 @@ const PHASES = {
     SETUP: 'setup',
     ROLE_REVEAL: 'role_reveal',
     N1_INTRO: 'n1_intro',
-    N1_VOTE: 'n1_vote',
+
     NIGHT: 'night',
     MORNING: 'morning',
     DAY: 'day',
@@ -36,9 +36,6 @@ export function advance(state, winConditionChecker) {
             next = PHASES.N1_INTRO;
             break;
         case PHASES.N1_INTRO:
-            next = PHASES.N1_VOTE;
-            break;
-        case PHASES.N1_VOTE:
             next = PHASES.NIGHT;
             shouldIncrementRound = true;
             updates.analyst_night_decided = false;

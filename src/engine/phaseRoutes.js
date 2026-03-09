@@ -5,7 +5,7 @@ export const PHASE_ROUTES = {
     setup: '/setup/names',
     role_reveal: '/roles',
     n1_intro: '/n1/intro',
-    n1_vote: '/n1/vote',
+
     night: '/night',
     morning: '/morning/hint',
     day: '/day',

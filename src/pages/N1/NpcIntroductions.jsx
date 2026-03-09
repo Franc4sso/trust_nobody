@@ -23,9 +23,9 @@ export default function NpcIntroductions() {
         } else {
             dispatch({
                 type: ACTIONS.SET_PHASE_AND_ROUND,
-                payload: { phase: 'n1_vote' },
+                payload: { phase: 'night', round: 1 },
             });
-            navigate('/n1/vote');
+            navigate('/night');
         }
     };
 

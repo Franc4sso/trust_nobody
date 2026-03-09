@@ -256,35 +256,43 @@ export default function MasterNightPanel() {
                             exit={{ opacity: 0, y: -8 }}
                             className="space-y-4"
                         >
-                            <p className="text-cream/50 text-sm">Attiva il tuo potere?</p>
-                            <div className="flex gap-3">
-                                <NeonButton
-                                    color="blue"
-                                    className="flex-1"
-                                    onClick={() => {
-                                        addAction({
-                                            action_type: 'analyst',
-                                            actor_player_id: analysts[0].id,
-                                            round_number: state.current_round,
-                                        });
-                                        dispatch({
-                                            type: ACTIONS.UPDATE_PLAYER,
-                                            payload: {
-                                                id: analysts[0].id,
-                                                updates: { analyst_used: true, analyst_used_ever: true },
-                                            },
-                                        });
-                                    }}
-                                >
-                                    Attiva Potere
-                                </NeonButton>
-                                <button
-                                    onClick={skipPhase}
-                                    className="flex-1 btn-neon btn-neon-yellow py-3 text-sm"
-                                >
-                                    Non Attivare
-                                </button>
+                            <p className="text-cream/50 text-sm">Scegli un NPC da indagare per scoprire se è stato minacciato</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                {aliveNpcs.map((npc, i) => (
+                                    <motion.button
+                                        key={npc.id}
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: i * 0.06 }}
+                                        onClick={() => {
+                                            addAction({
+                                                action_type: 'analyst',
+                                                actor_player_id: analysts[0].id,
+                                                target_npc_id: npc.id,
+                                                round_number: state.current_round,
+                                            });
+                                            dispatch({
+                                                type: ACTIONS.UPDATE_PLAYER,
+                                                payload: {
+                                                    id: analysts[0].id,
+                                                    updates: { analyst_used: true, analyst_used_ever: true },
+                                                },
+                                            });
+                                        }}
+                                        className="card-pulp p-4 text-center hover:border-neon-blue/50 transition-all"
+                                        style={{ borderColor: 'rgba(96,165,250,0.3)' }}
+                                    >
+                                        <p className="text-headline text-lg text-neon-blue">{npc.name}</p>
+                                        <p className="text-ui text-xs text-cream/40 mt-1">Indaga</p>
+                                    </motion.button>
+                                ))}
                             </div>
+                            <button
+                                onClick={skipPhase}
+                                className="w-full btn-neon btn-neon-yellow py-3 text-sm"
+                            >
+                                Non Attivare
+                            </button>
                         </motion.div>
                     )}
 

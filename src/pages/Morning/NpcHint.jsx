@@ -24,7 +24,10 @@ export default function NpcHint() {
         hintRef.current = generateHint(state, hintNpc, isThreatened);
     }
     const hint = hintRef.current ?? '';
-    const analystBonus = currentRound?.analyst_bonus_hint || null;
+    const analystResult = currentRound?.analyst_target_npc_id ? {
+        npcName: currentRound.analyst_target_npc_name,
+        threatened: currentRound.analyst_npc_threatened,
+    } : null;
 
     useEffect(() => {
         if (hint && hintNpc && currentRound && !currentRound.hint_text) {
@@ -112,15 +115,20 @@ export default function NpcHint() {
                         </div>
                     )}
 
-                    {analystBonus && (
+                    {analystResult && (
                         <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
                         >
                             <PulpCard variant="info" className="p-4 border-l-4 border-l-neon-blue">
-                                <p className="text-headline text-xs text-neon-blue tracking-widest mb-2">ANALISI DELL'ANALISTA</p>
-                                <p className="text-quote text-cream/80 leading-relaxed">&ldquo;{analystBonus}&rdquo;</p>
+                                <p className="text-headline text-xs text-neon-blue tracking-widest mb-2">INDAGINE DELL'ANALISTA</p>
+                                <p className="text-quote text-cream/80 leading-relaxed">
+                                    {analystResult.threatened
+                                        ? <>&ldquo;Ho indagato su <span className="text-neon-blue font-bold">{analystResult.npcName}</span>: è stato <span className="text-blood font-bold">minacciato dal killer</span>. I suoi indizi potrebbero essere falsi.&rdquo;</>
+                                        : <>&ldquo;Ho indagato su <span className="text-neon-blue font-bold">{analystResult.npcName}</span>: <span className="text-poison font-bold">parla liberamente</span>. I suoi indizi sono affidabili.&rdquo;</>
+                                    }
+                                </p>
                             </PulpCard>
                         </motion.div>
                     )}

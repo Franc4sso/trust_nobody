@@ -31,7 +31,7 @@ export const ROLE_DESCRIPTIONS = {
     serial_killer: 'Ogni notte puoi uccidere o minacciare un NPC. Se elimini tutti gli NPC, vinci.',
     guardian: "Ogni notte puoi proteggere un NPC dall'attacco del killer.",
     medium: "Dopo ogni eliminazione puoi scoprire in segreto se il giocatore eliminato era il killer.",
-    analyst: 'Una volta a partita puoi attivare il tuo potere di notte per ricevere un indizio bonus basato sui pattern di voto.',
+    analyst: 'Una volta a partita, di notte, puoi indagare su un NPC per scoprire se sta dicendo la verità o è stato minacciato dal killer.',
     seer: 'Una volta a partita, di notte, puoi scoprire il ruolo di un giocatore.',
     citizen: 'Non hai poteri speciali, ma la tua voce conta nelle votazioni.',
 };
