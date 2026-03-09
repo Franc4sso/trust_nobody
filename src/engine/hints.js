@@ -84,19 +84,31 @@ export function generateHint(state, npc, isThreatened) {
     //   (cosi' il giocatore non distingue un NPC minacciato da uno normale).
     if (isThreatened) {
         if (knowsKiller) {
-            // Conosce il killer ma e' minacciato → finge di non sapere, depista
             return innocentHint(state, npc, connNames, round);
         }
-        // Non conosce il killer ma e' minacciato → accusa innocenti come se fossero sospetti
-        // Se non ha connessioni innocenti, fa l'innocente anche lui
         if (connInnocentIds.length === 0) {
             return innocentHint(state, npc, connNames, round);
         }
-        // Prende un innocente a caso come "finto killer" e gli altri come "finti innocenti"
         const shuffledInnocents = shuffle([...connInnocentIds]);
         const fakeKillerIds = [shuffledInnocents[0]];
         const fakeInnocentIds = shuffledInnocents.slice(1);
         return killerHint(state, npc, connNames, fakeKillerIds, fakeInnocentIds, playerNames, round);
+    }
+
+    // NPC inaffidabile (non minacciato): 40% di probabilita' di mentire.
+    // Stessa logica del minacciato: inverte le informazioni.
+    if (npc.unreliable && Math.random() < 0.4) {
+        if (knowsKiller) {
+            // Sa chi e' il killer ma mente → copre il killer
+            return innocentHint(state, npc, connNames, round);
+        }
+        // Non conosce il killer ma mente → accusa innocenti
+        if (connInnocentIds.length > 0) {
+            const shuffledInnocents = shuffle([...connInnocentIds]);
+            const fakeKillerIds = [shuffledInnocents[0]];
+            const fakeInnocentIds = shuffledInnocents.slice(1);
+            return killerHint(state, npc, connNames, fakeKillerIds, fakeInnocentIds, playerNames, round);
+        }
     }
 
     if (!knowsKiller) {
@@ -222,22 +234,39 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
     const alivePlayers = (state.players ?? []).filter(p => p.is_alive);
     const aliveCount = alivePlayers.length;
 
-    // expanded: own + borrowed, killer nascosto nella folla (3-5 nomi)
-    const expanded = bridge
-        ? expandNames(connNames, bridge.borrowedNames, 5)
-        : shuffle([...connNames]);
-    // narrow: killer + fino a 2 innocenti (2-3 nomi)
-    const narrow = shuffle([killerNames[0], ...shuffle([...innocentNames]).slice(0, 2)]);
-
-    // focused: minimo 3 nomi sempre. In endgame (<=5 vivi) minimo 4 per non
-    // rendere l'hint troppo rivelatore quando un voto sbagliato = vittoria killer.
-    const minExtra = aliveCount <= 5 ? 3 : 2;
+    // Pool di nomi extra da connessioni (own innocents + borrowed)
     const extraPool = [...shuffle([...innocentNames])];
     if (bridge?.borrowedNames) {
         for (const n of bridge.borrowedNames) {
             if (!extraPool.includes(n)) extraPool.push(n);
         }
     }
+
+    // expanded: killer nascosto nella folla, 4-6 nomi
+    const expandedBase = bridge
+        ? expandNames(connNames, bridge.borrowedNames, 6)
+        : shuffle([...connNames]);
+    // Assicura almeno 4 nomi
+    if (expandedBase.length < 4) {
+        for (const n of extraPool) {
+            if (expandedBase.length >= 4) break;
+            if (!expandedBase.includes(n)) expandedBase.push(n);
+        }
+    }
+    const expanded = shuffle(expandedBase);
+
+    // narrow: killer + innocenti + borrowed, minimo 4 nomi
+    const narrowBase = [killerNames[0], ...shuffle([...innocentNames]).slice(0, 3)];
+    if (narrowBase.length < 4 && bridge?.borrowedNames) {
+        for (const n of bridge.borrowedNames) {
+            if (narrowBase.length >= 4) break;
+            if (!narrowBase.includes(n)) narrowBase.push(n);
+        }
+    }
+    const narrow = shuffle(narrowBase);
+
+    // focused: killer + extra, minimo 4 nomi sempre
+    const minExtra = aliveCount <= 5 ? 4 : 3;
     const focusedExtra = extraPool.slice(0, minExtra);
     const focused = shuffle([killerNames[0], ...focusedExtra]);
 
@@ -340,39 +369,74 @@ function killerHint(state, npc, connNames, connKillerIds, connInnocentIds, playe
 
 
 // ── analyst bonus ────────────────────────────────────────────────────
+//
+// L'analista riceve indizi progressivamente piu' forti:
+//   round 1-2 (early): sensazioni generiche sui voti, atmosfera
+//   round 3-4 (mid):   pattern di voto concreti, segnali su minacce NPC
+//   round 5+  (late):  analisi incrociate voti + minacce, gruppi sospetti
+//
+// MAI puntare a un singolo sospetto. Sempre almeno 2-3 nomi o gruppi.
+// ─────────────────────────────────────────────────────────────────────
 
 export function generateAnalystBonus(state) {
+    const round = state.current_round;
     const playerNames = Object.fromEntries(
         (state.players ?? []).map(p => [p.id, p.name])
     );
     const killerIds = (state.players ?? [])
         .filter(p => p.role === 'serial_killer')
         .map(p => p.id);
-    const aliveIds = (state.players ?? [])
-        .filter(p => p.is_alive)
-        .map(p => p.id);
+    const alive = (state.players ?? []).filter(p => p.is_alive);
+    const aliveIds = alive.map(p => p.id);
     const allVotes = (state.votes ?? []).filter(
         v => aliveIds.includes(v.voter_player_id) && aliveIds.includes(v.target_player_id)
     );
+    const rounds = state.rounds ?? [];
 
-    return analyzeVotePatterns(state, playerNames, killerIds, allVotes) ?? pick([
-        "Le votazioni finora non rivelano schemi chiari. Qualcuno e' molto bravo a nascondersi nel voto.",
-        "Ho analizzato ogni voto espresso... c'e' qualcuno che vota sempre in modo strategico, ma non riesco ancora a capire chi.",
-        "I pattern di voto sono confusi. Forse e' proprio questo il piano del killer: creare caos nelle assemblee.",
-    ]);
-}
+    // Raccolta hint per tier
+    const early = [];
+    const mid = [];
+    const late = [];
 
-function analyzeVotePatterns(state, playerNames, killerIds, allVotes) {
-    if (!allVotes.length) return null;
+    // ── ANALISI VOTI ──────────────────────────────────────────────────
 
-    // Raccogli pattern con priorita': high (coinvolgono killer), low (generici)
-    const high = [];
-    const low = [];
-
-    // Voti raggruppati per round
     const votesByRound = {};
     for (const v of allVotes) {
         (votesByRound[v.round_number] ??= []).push(v);
+    }
+
+    // Mai bersagliati
+    const allTargeted = {};
+    for (const v of allVotes) {
+        allTargeted[v.target_player_id] = (allTargeted[v.target_player_id] ?? 0) + 1;
+    }
+    const neverTargeted = alive.filter(p => !allTargeted[p.id]);
+    if (neverTargeted.length >= 2 && neverTargeted.length <= 4) {
+        const names = neverTargeted.map(p => p.name).join(', ');
+        early.push(`Strano: ${names} non hanno mai ricevuto nemmeno un voto. Nessuno li sospetta... o nessuno osa accusarli?`);
+        mid.push(`${names} continuano a non ricevere voti. E' sospetto che nessuno li abbia mai puntati.`);
+    }
+
+    // Cambio bersaglio ogni round
+    const voterTargets = {};
+    for (const v of allVotes) {
+        (voterTargets[v.voter_player_id] ??= []).push(v.target_player_id);
+    }
+    const flipFloppers = [];
+    for (const [voterId, targets] of Object.entries(voterTargets)) {
+        if (targets.length >= 2 && new Set(targets).size === targets.length) {
+            flipFloppers.push(playerNames[voterId] ?? '?');
+        }
+    }
+    if (flipFloppers.length >= 2) {
+        early.push(`${flipFloppers.join(' e ')} cambiano bersaglio ad ogni votazione. Comportamento nervoso o strategico?`);
+        mid.push(`${flipFloppers.join(' e ')} non votano mai la stessa persona due volte. Stanno cercando di confondere le acque?`);
+    } else if (flipFloppers.length === 1) {
+        // Non puntare a uno solo: aggiungere un altro nome
+        const other = alive.find(p => p.name !== flipFloppers[0]);
+        if (other) {
+            early.push(`Alcuni giocatori come ${flipFloppers[0]} e ${other.name} mostrano pattern di voto irregolari. Tenete d'occhio chi cambia idea troppo spesso.`);
+        }
     }
 
     // Chi ha votato insieme contro lo stesso bersaglio (killer + innocente)
@@ -388,13 +452,14 @@ function analyzeVotePatterns(state, playerNames, killerIds, allVotes) {
             if (hasKiller && hasInnocent) {
                 const names = voterIds.slice(0, 3).map(id => playerNames[id] ?? '?').join(' e ');
                 const target = playerNames[targetId] ?? '?';
-                high.push(`Ho notato che ${names} hanno votato insieme contro ${target}. Coincidenza o strategia?`);
+                mid.push(`${names} hanno votato insieme contro ${target}. Coincidenza o strategia?`);
+                late.push(`C'e' un gruppo che vota in blocco: ${names}. Almeno uno di loro sta manipolando gli altri.`);
             }
         }
     }
 
     // Chi ha votato per eliminare un innocente
-    for (const r of (state.rounds ?? [])) {
+    for (const r of rounds) {
         if (!r.eliminated_player_id) continue;
         const eliminated = (state.players ?? []).find(p => p.id === r.eliminated_player_id);
         if (!eliminated || eliminated.role === 'serial_killer') continue;
@@ -402,42 +467,108 @@ function analyzeVotePatterns(state, playerNames, killerIds, allVotes) {
             .filter(v => v.round_number === r.round_number && !v.is_runoff && v.target_player_id === eliminated.id)
             .map(v => playerNames[v.voter_player_id] ?? '?');
         if (pushers.length >= 2) {
-            high.push(`${pushers.slice(0, 3).join(', ')} hanno spinto per eliminare ${eliminated.name}, che era innocente. Chi di loro aveva interesse a farlo fuori?`);
+            mid.push(`${pushers.slice(0, 3).join(', ')} hanno spinto per eliminare ${eliminated.name}, che era innocente. Chi tra loro aveva interesse?`);
+            late.push(`Ripensando all'eliminazione di ${eliminated.name}: ${pushers.slice(0, 3).join(', ')} l'hanno voluta fortemente. Almeno uno di loro sapeva cosa faceva.`);
         }
     }
 
-    // Mai bersagliati
-    const allTargeted = {};
+    // Chi non ha mai votato un killer (e c'e' stato almeno 1 voto contro un killer)
+    const killerVoters = new Set();
     for (const v of allVotes) {
-        allTargeted[v.target_player_id] = (allTargeted[v.target_player_id] ?? 0) + 1;
+        if (killerIds.includes(v.target_player_id)) {
+            killerVoters.add(v.voter_player_id);
+        }
     }
-    const alive = (state.players ?? []).filter(p => p.is_alive);
-    const neverTargeted = alive.filter(p => !allTargeted[p.id]);
-    if (neverTargeted.length >= 1 && neverTargeted.length <= 3) {
-        const names = neverTargeted.map(p => p.name).join(', ');
-        low.push(`Strano: ${names} non ha mai ricevuto nemmeno un voto. Nessuno li sospetta... o nessuno osa accusarli?`);
+    if (killerVoters.size > 0) {
+        const neverVotedKiller = alive.filter(p =>
+            !killerIds.includes(p.id) && !killerVoters.has(p.id)
+        );
+        if (neverVotedKiller.length >= 2 && neverVotedKiller.length <= 4) {
+            const names = neverVotedKiller.map(p => p.name).join(', ');
+            late.push(`${names} non hanno mai votato contro chi si e' rivelato sospetto. Proteggono qualcuno o sono solo distratti?`);
+        }
     }
 
-    // Cambio bersaglio ogni round
-    const voterTargets = {};
-    for (const v of allVotes) {
-        (voterTargets[v.voter_player_id] ??= []).push(v.target_player_id);
-    }
-    for (const [voterId, targets] of Object.entries(voterTargets)) {
-        if (targets.length >= 2 && new Set(targets).size === targets.length) {
-            const voterName = playerNames[voterId] ?? '?';
-            const others = Object.keys(voterTargets).filter(id => id !== voterId);
-            const otherName = others.length > 0 ? playerNames[pick(others)] : null;
-            if (otherName) {
-                low.push(`${voterName} cambia bersaglio ad ogni votazione. Anche ${otherName} si comporta in modo strano durante i voti.`);
-            } else {
-                low.push(`${voterName} cambia bersaglio ad ogni votazione. Un comportamento del genere e' sospetto.`);
+    // ── ANALISI MINACCE NPC ───────────────────────────────────────────
+
+    const threatenedRounds = rounds.filter(r => r.killer_action === 'threaten');
+    const threatenedNpcIds = threatenedRounds.map(r => r.killer_target_npc_id);
+    const threatenedNpcs = (state.npcs ?? []).filter(n => threatenedNpcIds.includes(n.id));
+    const totalThreats = threatenedRounds.length;
+    const killRounds = rounds.filter(r => r.killer_action === 'kill');
+
+    if (totalThreats > 0) {
+        // Early: sensazione vaga
+        early.push(
+            "Ho la sensazione che non tutti gli NPC stiano dicendo la verita'. Qualcuno potrebbe essere sotto pressione.",
+            "Alcuni indizi degli NPC mi sembrano contraddittori. Come se qualcuno parlasse contro la propria volonta'.",
+        );
+
+        // Mid: piu' concreto, pattern minacce vs uccisioni
+        if (totalThreats >= 2) {
+            mid.push(
+                `Il killer ha scelto di minacciare spesso invece di uccidere. Sta manipolando le informazioni che ricevete dagli NPC.`,
+                `Ho contato: ${totalThreats} notti su ${rounds.length} con minacce invece di omicidi. Il killer preferisce il depistaggio alla violenza. Non fidatevi ciecamente degli indizi.`,
+            );
+        } else {
+            mid.push(
+                `C'e' stata almeno una notte in cui il killer ha scelto di non uccidere. Questo significa che almeno un indizio potrebbe essere stato manipolato.`,
+                `Non tutte le notti il killer uccide. A volte preferisce controllare cosa dicono gli NPC. Riflettete su quali indizi vi hanno portato fuori strada.`,
+            );
+        }
+
+        // Late: incrocio minacce + voti
+        if (threatenedNpcs.length > 0) {
+            const hintRounds = threatenedRounds.map(r => r.round_number);
+            const suspiciousVoters = [];
+            for (const hintRound of hintRounds) {
+                const nextRoundVotes = allVotes.filter(v => v.round_number === hintRound);
+                for (const v of nextRoundVotes) {
+                    if (killerIds.includes(v.voter_player_id)) {
+                        suspiciousVoters.push(v.voter_player_id);
+                    }
+                }
             }
+            // Non rivelare chi, ma indicare il pattern
+            late.push(
+                `Ho incrociato le notti di minaccia con i voti del giorno dopo. Qualcuno sembra votare in modo piu' sicuro dopo le notti in cui il killer non ha ucciso. Come se sapesse gia' l'esito.`,
+                `Dopo le notti senza omicidi, certi giocatori votano con piu' convinzione. Coincidenza? Il killer potrebbe usare le minacce per guidare le votazioni.`,
+            );
         }
+
+        // Late: pattern specifico su notti alterne
+        if (totalThreats >= 2 && killRounds.length >= 1) {
+            late.push(
+                `Il killer alterna uccisioni e minacce. Nei turni dopo le minacce, gli indizi degli NPC puntano in direzioni strane. Confrontate gli indizi tra notti diverse: quelli che contraddicono gli altri potrebbero essere stati dati sotto costrizione.`,
+            );
+        }
+    } else if (rounds.length >= 2) {
+        // Nessuna minaccia rilevata
+        mid.push(
+            "Finora non ho motivo di credere che gli NPC siano stati manipolati. Gli indizi che avete ricevuto sembrano genuini.",
+        );
+        late.push(
+            "Dopo tanti giri, gli NPC sembrano tutti parlare liberamente. Il killer preferisce uccidere piuttosto che manipolare. Fidatevi degli indizi.",
+        );
     }
 
-    // Restituisci il pattern piu' forte disponibile
-    if (high.length) return pick(high);
-    if (low.length) return pick(low);
-    return null;
+    // ── SELEZIONE PER ROUND ───────────────────────────────────────────
+
+    const fallback = [
+        "Le votazioni finora non rivelano schemi chiari. Qualcuno e' molto bravo a nascondersi nel voto.",
+        "Ho analizzato ogni voto espresso... c'e' qualcuno che vota in modo strategico, ma non riesco ancora a capire chi.",
+        "I pattern di voto sono confusi. Forse e' proprio questo il piano del killer: creare caos nelle assemblee.",
+    ];
+
+    if (round <= 2) {
+        return early.length > 0 ? pick(early) : pick(fallback);
+    }
+    if (round <= 4) {
+        // Mid: preferisci mid, fallback su early
+        const pool = mid.length > 0 ? mid : early.length > 0 ? early : fallback;
+        return pick(pool);
+    }
+    // Late: preferisci late, fallback su mid
+    const pool = late.length > 0 ? late : mid.length > 0 ? mid : fallback;
+    return pick(pool);
 }

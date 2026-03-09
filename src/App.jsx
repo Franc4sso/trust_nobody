@@ -1,5 +1,6 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { GameProvider, useGame } from '@/engine/gameState';
 
 // Pages
@@ -25,108 +26,112 @@ function RequireGame({ children }) {
     return children;
 }
 
-function AppRoutes() {
+function AnimatedRoutes() {
+    const location = useLocation();
+
     return (
-        <Routes>
-            <Route path="/" element={<Home />} />
+        <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<Home />} />
 
-            <Route
-                path="/setup/names"
-                element={
-                    <RequireGame>
-                        <PlayerNames />
-                    </RequireGame>
-                }
-            />
-            <Route
-                path="/roles"
-                element={
-                    <RequireGame>
-                        <RoleReveal />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/setup/names"
+                    element={
+                        <RequireGame>
+                            <PlayerNames />
+                        </RequireGame>
+                    }
+                />
+                <Route
+                    path="/roles"
+                    element={
+                        <RequireGame>
+                            <RoleReveal />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/n1/intro"
-                element={
-                    <RequireGame>
-                        <NpcIntroductions />
-                    </RequireGame>
-                }
-            />
-            <Route
-                path="/n1/vote"
-                element={
-                    <RequireGame>
-                        <FirstVote />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/n1/intro"
+                    element={
+                        <RequireGame>
+                            <NpcIntroductions />
+                        </RequireGame>
+                    }
+                />
+                <Route
+                    path="/n1/vote"
+                    element={
+                        <RequireGame>
+                            <FirstVote />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/night"
-                element={
-                    <RequireGame>
-                        <MasterNightPanel />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/night"
+                    element={
+                        <RequireGame>
+                            <MasterNightPanel />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/morning/hint"
-                element={
-                    <RequireGame>
-                        <NpcHint />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/morning/hint"
+                    element={
+                        <RequireGame>
+                            <NpcHint />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/day"
-                element={
-                    <RequireGame>
-                        <Discussion />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/day"
+                    element={
+                        <RequireGame>
+                            <Discussion />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/vote/panel"
-                element={
-                    <RequireGame>
-                        <MasterVotePanel />
-                    </RequireGame>
-                }
-            />
-            <Route
-                path="/vote/result"
-                element={
-                    <RequireGame>
-                        <VoteResult />
-                    </RequireGame>
-                }
-            />
-            <Route
-                path="/vote/medium-reveal"
-                element={
-                    <RequireGame>
-                        <MediumReveal />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/vote/panel"
+                    element={
+                        <RequireGame>
+                            <MasterVotePanel />
+                        </RequireGame>
+                    }
+                />
+                <Route
+                    path="/vote/result"
+                    element={
+                        <RequireGame>
+                            <VoteResult />
+                        </RequireGame>
+                    }
+                />
+                <Route
+                    path="/vote/medium-reveal"
+                    element={
+                        <RequireGame>
+                            <MediumReveal />
+                        </RequireGame>
+                    }
+                />
 
-            <Route
-                path="/game-over"
-                element={
-                    <RequireGame>
-                        <GameOver />
-                    </RequireGame>
-                }
-            />
+                <Route
+                    path="/game-over"
+                    element={
+                        <RequireGame>
+                            <GameOver />
+                        </RequireGame>
+                    }
+                />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </AnimatePresence>
     );
 }
 
@@ -134,7 +139,7 @@ export default function App() {
     return (
         <GameProvider>
             <HashRouter>
-                <AppRoutes />
+                <AnimatedRoutes />
             </HashRouter>
         </GameProvider>
     );

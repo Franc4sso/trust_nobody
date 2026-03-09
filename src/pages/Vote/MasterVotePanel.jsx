@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useGame, selectors } from '@/engine/gameState';
 import { tally } from '@/engine/vote';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 import PageShell from '@/components/PageShell';
 import Headline from '@/components/Headline';
-import PulpCard from '@/components/PulpCard';
 import NeonButton from '@/components/NeonButton';
 
 export default function MasterVotePanel() {
@@ -70,7 +71,7 @@ export default function MasterVotePanel() {
     };
 
     return (
-        <PageShell>
+        <PageShell phase="vote">
             <div className="p-6 max-w-2xl mx-auto">
                 <Headline
                     glow={runoffPlayers ? 'pink' : 'yellow'}
@@ -80,38 +81,51 @@ export default function MasterVotePanel() {
                 </Headline>
 
                 {runoffPlayers && (
-                    <div className="card-pulp card-neon p-3 mb-6 text-center animate-neon-flicker">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="card-glass p-3 mb-6 text-center border border-neon-pink/20 flex items-center justify-center gap-2"
+                    >
+                        <AlertCircle size={16} className="text-neon-pink" />
                         <p className="text-headline text-sm text-neon-pink tracking-widest">BALLOTTAGGIO IN CORSO</p>
-                    </div>
+                    </motion.div>
                 )}
 
                 {voter && (
-                    <div className="space-y-5 animate-fade-in-up">
+                    <motion.div
+                        key={currentVoterIndex}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-5"
+                    >
                         {/* Current voter spotlight */}
-                        <div className="border-2 border-taxi rounded-lg p-5 text-center bg-noir/50 animate-spotlight">
-                            <p className="text-headline text-sm text-cream/40 tracking-widest mb-1">Sta votando:</p>
+                        <div className="border border-taxi/40 rounded-xl p-5 text-center bg-noir/40 animate-spotlight">
+                            <p className="text-headline text-xs text-cream/40 tracking-widest mb-1">Sta votando:</p>
                             <h2 className="text-headline text-3xl text-taxi">{voter.name}</h2>
                         </div>
 
                         {/* Targets */}
-                        <div className="grid grid-cols-1 gap-3">
-                            {targets.map((target) => (
-                                <button
+                        <div className="space-y-2">
+                            {targets.map((target, i) => (
+                                <motion.button
                                     key={target.id}
+                                    initial={{ opacity: 0, x: -8 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.05 }}
                                     onClick={() => setSelectedPlayerId(target.id)}
-                                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                                    className={`w-full p-4 rounded-xl border transition-all text-left ${
                                         selectedPlayerId === target.id
-                                            ? 'border-neon-pink bg-neon-pink/10 shadow-[0_0_20px_rgba(255,45,107,0.2)]'
-                                            : 'border-asphalt bg-asphalt/50 hover:border-tobacco'
+                                            ? 'border-neon-pink/50 bg-neon-pink/8 shadow-[0_0_20px_rgba(251,113,133,0.1)]'
+                                            : 'border-tobacco bg-asphalt/50 hover:border-cream/15'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-ui font-semibold text-cream">{target.name}</span>
+                                        <span className="text-ui font-medium text-cream">{target.name}</span>
                                         {selectedPlayerId === target.id && (
-                                            <span className="text-poison text-lg">&#10003;</span>
+                                            <CheckCircle size={18} className="text-neon-pink" />
                                         )}
                                     </div>
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
 
@@ -120,15 +134,15 @@ export default function MasterVotePanel() {
                         </NeonButton>
 
                         {/* Progress bar */}
-                        <div className="h-2 bg-asphalt rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-blood rounded-full transition-all duration-300"
-                                style={{
-                                    width: `${((currentVoterIndex + 1) / alivePlayers.length) * 100}%`,
-                                }}
+                        <div className="h-1.5 bg-tobacco rounded-full overflow-hidden">
+                            <motion.div
+                                className="h-full bg-blood rounded-full"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${((currentVoterIndex + 1) / alivePlayers.length) * 100}%` }}
+                                transition={{ duration: 0.4, ease: 'easeOut' }}
                             />
                         </div>
-                    </div>
+                    </motion.div>
                 )}
             </div>
         </PageShell>

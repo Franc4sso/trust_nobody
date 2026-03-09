@@ -183,6 +183,9 @@ export async function generateNpcs(players, killerIds = []) {
 
     const aiResults = await generateAllDescriptionsWithAI(archetypes, connectionMap, players);
 
+    // Un NPC random diventa inaffidabile
+    const unreliableIndex = Math.floor(Math.random() * archetypes.length);
+
     return archetypes.map((archetype, i) => {
         const connectedPlayerIds = [...connectionMap[i]];
         const connectedPlayers = connectedPlayerIds.map(id => players.find(p => p.id === id)).filter(Boolean);
@@ -200,6 +203,7 @@ export async function generateNpcs(players, killerIds = []) {
             connection_descriptions: connectionDescriptions,
             is_alive: true,
             is_threatened: false,
+            unreliable: i === unreliableIndex,
         };
     });
 }

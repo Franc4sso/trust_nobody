@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useGame, selectors } from '@/engine/gameState';
 import { tally } from '@/engine/vote';
 import { checkWinCondition } from '@/engine/winCondition';
 import { advance } from '@/engine/stateMachine';
 import { getRouteForPhase } from '@/engine/phaseRoutes';
+import { Scale, Skull } from 'lucide-react';
 import PageShell from '@/components/PageShell';
 import Headline from '@/components/Headline';
 import PulpCard from '@/components/PulpCard';
@@ -81,45 +83,74 @@ export default function VoteResult() {
     };
 
     return (
-        <PageShell className="flex items-center justify-center p-4">
-            <div className="max-w-2xl w-full animate-fade-in-up">
+        <PageShell className="flex items-center justify-center p-4" phase="vote">
+            <div className="max-w-2xl w-full">
                 {/* Runoff announcement */}
                 {result.runoff && !isRunoff && (
-                    <PulpCard variant="neon" className="p-8 space-y-6 text-center">
-                        <Headline glow="pink">PAREGGIO!</Headline>
-                        <p className="text-cream/60">Ballottaggio tra:</p>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <PulpCard variant="neon" className="p-8 space-y-6 text-center">
+                            <div className="w-16 h-16 rounded-full bg-neon-pink/10 mx-auto flex items-center justify-center">
+                                <Scale size={28} color="#fb7185" strokeWidth={1.5} />
+                            </div>
+                            <Headline glow="pink">PAREGGIO!</Headline>
+                            <p className="text-cream/50 text-sm">Ballottaggio tra:</p>
 
-                        <div className="space-y-3">
-                            {result.runoff.map((player) => (
-                                <div key={player.id} className="bg-noir/50 border border-neon-pink/30 rounded-lg p-4 text-center">
-                                    <p className="text-headline text-xl text-neon-pink">{player.name}</p>
-                                    <p className="text-ui text-sm text-cream/40 mt-1">
-                                        {result.counts[player.id]} voti
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
+                            <div className="space-y-3">
+                                {result.runoff.map((player, i) => (
+                                    <motion.div
+                                        key={player.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 + i * 0.1 }}
+                                        className="bg-noir/40 border border-neon-pink/20 rounded-xl p-4 text-center"
+                                    >
+                                        <p className="text-headline text-xl text-neon-pink">{player.name}</p>
+                                        <p className="text-ui text-sm text-cream/40 mt-1">
+                                            {result.counts[player.id]} voti
+                                        </p>
+                                    </motion.div>
+                                ))}
+                            </div>
 
-                        <NeonButton color="pink" onClick={proceedToRunoff}>
-                            Procedi al Ballottaggio
-                        </NeonButton>
-                    </PulpCard>
+                            <NeonButton color="pink" onClick={proceedToRunoff}>
+                                Procedi al Ballottaggio
+                            </NeonButton>
+                        </PulpCard>
+                    </motion.div>
                 )}
 
                 {/* Elimination result */}
                 {result.eliminated && (
-                    <PulpCard variant="danger" className="p-8 space-y-6 text-center">
-                        <Headline glow="red">ELIMINATO</Headline>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <PulpCard variant="danger" className="p-8 space-y-6 text-center">
+                            <div className="w-16 h-16 rounded-full bg-blood/10 mx-auto flex items-center justify-center">
+                                <Skull size={28} color="#d4364b" strokeWidth={1.5} />
+                            </div>
+                            <Headline glow="red">ELIMINATO</Headline>
 
-                        <div className="bg-noir/60 border-2 border-blood rounded-lg p-6 animate-blood-drip">
-                            <p className="text-headline text-4xl text-blood glow-red">{result.eliminated.name}</p>
-                            <p className="text-ui text-sm text-cream/40 mt-2">
-                                {result.counts[result.eliminated.id]} voti
-                            </p>
-                        </div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="bg-noir/50 border border-blood/30 rounded-xl p-6"
+                            >
+                                <p className="text-headline text-4xl text-blood glow-red">{result.eliminated.name}</p>
+                                <p className="text-ui text-sm text-cream/40 mt-2">
+                                    {result.counts[result.eliminated.id]} voti
+                                </p>
+                            </motion.div>
 
-                        <p className="text-quote text-cream/40">Il gioco continua...</p>
-                    </PulpCard>
+                            <p className="text-quote text-cream/35">Il gioco continua...</p>
+                        </PulpCard>
+                    </motion.div>
                 )}
 
                 {/* No result */}
